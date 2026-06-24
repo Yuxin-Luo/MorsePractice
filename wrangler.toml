@@ -1,0 +1,16 @@
+name = "morse-practice"
+pages_build_dir = "."
+compatibility_date = "2026-06-24"
+
+# No build command. Cloudflare Pages will serve the repo root directly.
+# Project layout:
+#   index.html         — entry
+#   src/main.js        — JS entry (imported as ES module)
+#   src/...            — ES module tree
+#   styles/main.css    — single stylesheet
+#   dev-docs/          — project documentation (served alongside)
+# Excluded via .gitignore + .pagesignore:
+#   node_modules/      — dev-only (vitest)
+#   tests/             — dev-only
+#   .git/              — VCS metadata
+#   ReferenceRepositories/ — local research clones

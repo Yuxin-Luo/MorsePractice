@@ -1,0 +1,24 @@
+# Files / directories that should NOT be uploaded to Cloudflare Pages.
+# Belt-and-suspenders alongside .gitignore: even if .gitignore doesn't catch
+# something (e.g. force-added file), this explicit list keeps the deploy clean.
+node_modules/
+tests/
+.git/
+.github/
+.claude/
+.codegraph
+ReferenceRepositories/
+coverage/
+.nyc_output/
+dist/
+build/
+*.log
+*.tmp
+.DS_Store
+.vscode/
+.idea/
+dev-server.py
+dev-docs/                          # stage-by-stage dev notes, not for demo
+morse-practice-research-2026-06-24/ # local research notes
+package-lock.json
+vitest.config.js
