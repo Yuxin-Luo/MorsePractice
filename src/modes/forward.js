@@ -28,8 +28,6 @@ const WORDS = [
 ];
 
 const SENTENCES = [
-  'SOS',
-  'HI',
   'I AM FINE',
   'HELLO WORLD',
   'THE QUICK BROWN FOX',
@@ -38,6 +36,8 @@ const SENTENCES = [
   'CQ CQ CQ',
   'THE RAIN IN SPAIN',
   'A QUICK MOVEMENT OF THE ENEMY',
+  'TO BE OR NOT TO BE',
+  'KNOWLEDGE IS POWER',
 ];
 
 function randItem(arr) {

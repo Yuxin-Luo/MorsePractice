@@ -9,23 +9,24 @@
 <body>
   <main class="app">
     <header class="app-header">
-      <h1>📡 摩斯密码练习器</h1>
-      <p class="tagline">看码打字 · 循序渐进</p>
+      <button class="lang-switch" data-i18n-lang-switch data-i18n-aria="language.switchTo" aria-label="切换语言">EN</button>
+      <h1 data-i18n="app.title">📡 摩斯密码练习器</h1>
+      <p class="tagline" data-i18n="app.tagline">看码打字 · 循序渐进</p>
     </header>
 
     <nav class="mode-bar">
-      <button class="mode-btn active" data-mode="letter">字母 / 数字</button>
-      <button class="mode-btn" data-mode="word">单词</button>
-      <button class="mode-btn" data-mode="sentence">句子</button>
+      <button class="mode-btn active" data-mode="letter" data-i18n="mode.letter">字母 / 数字</button>
+      <button class="mode-btn" data-mode="word" data-i18n="mode.word">单词</button>
+      <button class="mode-btn" data-mode="sentence" data-i18n="mode.sentence">句子</button>
     </nav>
 
     <section class="prompt-area">
-      <div class="prompt-label">请根据下面的摩斯码输入对应的文字：</div>
+      <div class="prompt-label" data-i18n="prompt.label">请根据下面的摩斯码输入对应的文字：</div>
       <div class="prompt-morse" id="prompt-morse">.... . .-.. .-.. ---</div>
       <div class="prompt-hint">
-        <span class="hint-text">目标：</span>
+        <span class="hint-text" data-i18n="prompt.target">目标：</span>
         <span class="prompt-item" id="prompt-item"></span>
-        <span class="hint-text hint-dim">（提示，仅供参考，可点击 🔊 听）</span>
+        <span class="hint-text hint-dim" data-i18n="prompt.hint">（提示，仅供参考，可点击 🔊 听）</span>
       </div>
     </section>
 
@@ -34,6 +35,7 @@
         type="text"
         id="answer-input"
         class="answer-input"
+        data-i18n-placeholder="input.placeholder"
         placeholder="在此输入你的答案..."
         autocomplete="off"
         autocapitalize="off"
@@ -44,38 +46,38 @@
     <section id="feedback" class="feedback hidden"></section>
 
     <section class="action-bar">
-      <button id="btn-prev" class="action-btn secondary" title="上一题 (P)">← 上一题</button>
-      <button id="btn-play" class="action-btn primary" title="播放 (空格)">🔊 播放</button>
-      <button id="btn-retry" class="action-btn secondary" title="重试 (R)">↻ 重试</button>
-      <button id="btn-next" class="action-btn primary" title="下一题 (N)">下一题 →</button>
+      <button id="btn-prev" class="action-btn secondary" data-i18n="action.prev">← 上一题</button>
+      <button id="btn-play" class="action-btn primary" data-i18n="action.play">🔊 播放</button>
+      <button id="btn-retry" class="action-btn secondary" data-i18n="action.retry">↻ 重试</button>
+      <button id="btn-next" class="action-btn primary" data-i18n="action.next">下一题 →</button>
     </section>
 
     <section class="result-panel" id="result-panel">
-      <h3>📊 累计统计</h3>
+      <h3 data-i18n="stats.title">📊 累计统计</h3>
       <div class="stats-grid">
         <div class="stat-item">
           <div class="stat-num" id="stat-total">0</div>
-          <div class="stat-lbl">总答题数</div>
+          <div class="stat-lbl" data-i18n="stats.totalAttempts">总答题数</div>
         </div>
         <div class="stat-item">
           <div class="stat-num" id="stat-accuracy">—</div>
-          <div class="stat-lbl">正确率</div>
+          <div class="stat-lbl" data-i18n="stats.accuracy">正确率</div>
         </div>
         <div class="stat-item">
           <div class="stat-num" id="stat-chars">0</div>
-          <div class="stat-lbl">练过字符</div>
+          <div class="stat-lbl" data-i18n="stats.uniqueChars">练过字符</div>
         </div>
       </div>
     </section>
 
     <section class="result-panel" id="result-panel-tips">
-      <h3>操作提示</h3>
+      <h3 data-i18n="tips.title">操作提示</h3>
       <ul class="shortcuts">
-        <li><kbd>空格</kbd> 播放摩斯码声音</li>
-        <li><kbd>R</kbd> 重试当前题</li>
-        <li><kbd>N</kbd> 下一题</li>
-        <li><kbd>P</kbd> 上一题</li>
-        <li><kbd>Enter</kbd> 提交答案</li>
+        <li><kbd>Space</kbd> <span data-i18n="tips.play">播放摩斯码声音</span></li>
+        <li><kbd>R</kbd> <span data-i18n="tips.retry">重试当前题</span></li>
+        <li><kbd>N</kbd> <span data-i18n="tips.next">下一题</span></li>
+        <li><kbd>P</kbd> <span data-i18n="tips.prev">上一题</span></li>
+        <li><kbd>Enter</kbd> <span data-i18n="tips.submit">提交答案</span></li>
       </ul>
     </section>
   </main>

@@ -40,6 +40,27 @@ body {
 .app-header {
   text-align: center;
   margin-bottom: 40px;
+  position: relative;
+}
+.lang-switch {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 1px;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.lang-switch:hover {
+  color: var(--text);
+  border-color: var(--accent);
 }
 .app-header h1 {
   font-size: 32px;

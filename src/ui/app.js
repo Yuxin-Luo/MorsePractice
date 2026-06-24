@@ -8,6 +8,7 @@
 import { createForwardSession, generateQuestion, judgeAnswer } from '../modes/forward.js';
 import { playMorse, stop } from '../core/audio.js';
 import { loadProgress, saveProgress, recordAttempt, getSummary } from '../storage/progress.js';
+import { t } from '../i18n/index.js';
 
 // DOM refs
 const $ = (sel) => document.querySelector(sel);
@@ -39,6 +40,11 @@ export function initApp() {
   bindInputField();
   bindKeyboardShortcuts();
   startSession('letter');
+  // Re-apply translations on locale change
+  document.addEventListener('i18n:applied', () => {
+    // Re-render prompts in case item-related strings depend on locale
+    // (item itself is morse, not text, so nothing to retranslate here)
+  });
 }
 
 function startSession(mode) {
@@ -178,11 +184,11 @@ function renderResult(state) {
   fb.innerHTML = '';
 
   if (status === 'correct') {
-    fb.textContent = '✅ 正确！';
+    fb.textContent = t('feedback.correct');
   } else if (status === 'wrong') {
-    fb.innerHTML = `<div>❌ 错误</div><div class="expected">期望：<code>${escapeHtml(state.item)}</code></div><div class="actual">你输入：<code>${escapeHtml(result.actual)}</code></div>`;
+    fb.innerHTML = `<div>${escapeHtml(t('feedback.wrong'))}</div><div class="expected">${escapeHtml(t('feedback.expected'))}<code>${escapeHtml(state.item)}</code></div><div class="actual">${escapeHtml(t('feedback.youTyped'))}<code>${escapeHtml(result.actual)}</code></div>`;
   } else {
-    fb.innerHTML = `<div>⚠️ 部分正确</div><div class="char-diff"></div>`;
+    fb.innerHTML = `<div>${escapeHtml(t('feedback.partial'))}</div><div class="char-diff"></div>`;
     const diff = fb.querySelector('.char-diff');
     result.charResults.forEach((ok, i) => {
       const span = document.createElement('span');
