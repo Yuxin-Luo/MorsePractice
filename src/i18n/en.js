@@ -17,6 +17,10 @@ export default {
     target: 'Target: ',
     hint: '(hint — you can also click 🔊 to listen)',
     listenHint: '🔊 Press play, then type what you hear',
+    showAnswer: 'Show answer',
+    hideAnswer: 'Hide answer',
+    toggleAnswerAria: 'Toggle answer visibility',
+    maskItem: '? ? ?',
   },
   input: {
     placeholder: 'Type your answer...',

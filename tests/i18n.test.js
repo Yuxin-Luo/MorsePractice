@@ -98,6 +98,17 @@ describe('applyTranslations()', () => {
     expect(document.querySelector('button').getAttribute('title')).toBe('Clear cumulative stats (current practice unaffected)');
   });
 
+  it('exposes prompt.showAnswer / prompt.hideAnswer in both locales', () => {
+    setLocale('zh');
+    expect(t('prompt.showAnswer')).toBe('显示答案');
+    expect(t('prompt.hideAnswer')).toBe('隐藏答案');
+    expect(t('prompt.maskItem')).toBe('? ? ?');
+    setLocale('en');
+    expect(t('prompt.showAnswer')).toBe('Show answer');
+    expect(t('prompt.hideAnswer')).toBe('Hide answer');
+    expect(t('prompt.maskItem')).toBe('? ? ?');
+  });
+
   it('dispatches i18n:applied event', () => {
     let called = false;
     document.addEventListener('i18n:applied', () => (called = true));

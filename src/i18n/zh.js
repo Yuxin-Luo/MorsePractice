@@ -17,6 +17,10 @@ export default {
     target: '目标：',
     hint: '（提示，仅供参考，可点击 🔊 听）',
     listenHint: '🔊 点击播放后，输入你听到的内容',
+    showAnswer: '显示答案',
+    hideAnswer: '隐藏答案',
+    toggleAnswerAria: '切换显示答案',
+    maskItem: '? ? ?',
   },
   input: {
     placeholder: '在此输入你的答案...',

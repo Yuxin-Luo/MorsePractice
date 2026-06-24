@@ -32,10 +32,16 @@
     <section class="prompt-area">
       <div class="prompt-label" data-i18n="prompt.label">请根据下面的摩斯码输入对应的文字：</div>
       <div class="prompt-morse" id="prompt-morse">.... . .-.. .-.. ---</div>
-      <div class="prompt-hint" id="prompt-hint">
-        <span data-i18n="prompt.target">目标：</span>
-        <span class="prompt-item" id="prompt-item"></span>
-        <span class="hint-text hint-dim" data-i18n="prompt.hint">（提示，仅供参考，可点击 🔊 听）</span>
+      <div class="prompt-hint-row">
+        <button id="btn-toggle-hint" class="toggle-hint-btn" type="button" data-i18n-aria="prompt.toggleAnswerAria" aria-label="切换显示答案">
+          <span class="toggle-icon" aria-hidden="true">👁️</span>
+          <span class="toggle-label" data-i18n="prompt.showAnswer">显示答案</span>
+        </button>
+        <div class="prompt-hint" id="prompt-hint">
+          <span data-i18n="prompt.target">目标：</span>
+          <span class="prompt-item" id="prompt-item"></span>
+          <span class="hint-text hint-dim" data-i18n="prompt.hint">（提示，仅供参考，可点击 🔊 听）</span>
+        </div>
       </div>
     </section>
 

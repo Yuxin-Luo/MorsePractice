@@ -29,6 +29,10 @@ const els = {
   modeButtons: () => $$('.mode-btn'),
   promptMorse: () => $('#prompt-morse'),
   promptHint: () => $('#prompt-hint'),
+  promptItem: () => $('#prompt-item'),
+  toggleHintBtn: () => $('#btn-toggle-hint'),
+  toggleHintLabel: () => $('#btn-toggle-hint .toggle-label'),
+  toggleHintIcon: () => $('#btn-toggle-hint .toggle-icon'),
   inputField: () => $('#answer-input'),
   playBtn: () => $('#btn-play'),
   retryBtn: () => $('#btn-retry'),
@@ -51,9 +55,51 @@ let subMode = 'letter';
 let history = [];
 let historyIndex = -1;
 
+/**
+ * Per-direction preference: should we show the answer in the prompt area?
+ *
+ * - forward (see morse → type): default true (hint helps beginners)
+ * - listen (hear morse → type): default false (cheating defeats the point)
+ *
+ * Persisted to localStorage under 'morse.v1.showAnswer.{direction}' so the
+ * choice survives page reloads. Stored separately per direction so toggling
+ * forward doesn't leak into listen.
+ */
+const SHOW_ANSWER_DEFAULTS = { forward: true, listen: false };
+const SHOW_ANSWER_KEY_PREFIX = 'morse.v1.showAnswer.';
+
+function loadShowAnswer(d) {
+  try {
+    const v = localStorage.getItem(SHOW_ANSWER_KEY_PREFIX + d);
+    if (v === 'true') return true;
+    if (v === 'false') return false;
+  } catch {}
+  return SHOW_ANSWER_DEFAULTS[d] ?? true;
+}
+function saveShowAnswer(d, v) {
+  try { localStorage.setItem(SHOW_ANSWER_KEY_PREFIX + d, String(!!v)); } catch {}
+}
+
+function getShowAnswer() {
+  // Reads from a small in-memory cache synced with the current direction
+  return showAnswerCache[direction] ?? SHOW_ANSWER_DEFAULTS[direction] ?? true;
+}
+function setShowAnswer(v) {
+  showAnswerCache[direction] = !!v;
+  saveShowAnswer(direction, !!v);
+  renderToggleHintButton();
+  renderCurrent();
+}
+
+// In-memory cache, initialized on initApp() and updated when direction changes.
+const showAnswerCache = { forward: null, listen: null };
+
 /** Initialize the app. */
 export function initApp() {
   console.log('[initApp] start, subMode =', JSON.stringify(subMode), 'direction =', JSON.stringify(direction));
+  // Load per-direction "show answer" preference from localStorage.
+  showAnswerCache.forward = loadShowAnswer('forward');
+  showAnswerCache.listen = loadShowAnswer('listen');
   renderStats();
   bindDirectionButtons();
   bindModeButtons();
@@ -62,6 +108,7 @@ export function initApp() {
   bindKeyboardShortcuts();
   bindReferenceModal();
   bindResetStatsButton();
+  bindToggleHintButton();
   try {
     startSession();
   } catch (err) {
@@ -72,8 +119,10 @@ export function initApp() {
     console.error('  session =', session);
     throw err;
   }
+  renderToggleHintButton();
   document.addEventListener('i18n:applied', () => {
     if (session) renderPrompt(history[historyIndex]);
+    renderToggleHintButton();
   });
 }
 
@@ -112,6 +161,7 @@ function startSession() {
   renderCurrent();
   els.promptMorse().classList.toggle('hidden', direction === 'listen');
   if (direction === 'listen') autoPlay();
+  renderToggleHintButton();
 }
 
 function createFactory() {
@@ -327,14 +377,50 @@ function renderMorseHTML(morse) {
 }
 
 function renderPrompt(state) {
+  const show = getShowAnswer();
   if (direction === 'forward') {
     els.promptMorse().innerHTML = renderMorseHTML(state.morse ?? '');
     els.promptMorse().classList.remove('hidden');
-    els.promptHint().innerHTML = `<span>${escapeHtml(t('prompt.target'))}</span> <span class="prompt-item">${escapeHtml(state.item ?? '')}</span> <span class="hint-text hint-dim">${escapeHtml(t('prompt.hint'))}</span>`;
+    // Forward hint: show item + meta. Item masked when showAnswer=false.
+    const itemText = show ? (state.item ?? '') : (t('prompt.maskItem') || '? ? ?');
+    els.promptHint().innerHTML =
+      `<span>${escapeHtml(t('prompt.target'))}</span>` +
+      ` <span class="prompt-item${show ? '' : ' hidden-by-toggle'}">${escapeHtml(itemText)}</span>` +
+      ` <span class="hint-text hint-dim">${escapeHtml(t('prompt.hint'))}</span>`;
+    els.promptHint().classList.remove('hidden-by-toggle');
   } else {
     els.promptMorse().classList.add('hidden');
-    els.promptHint().innerHTML = `<span class="hint-text">${escapeHtml(t('prompt.listenHint') || '🔊 点击播放后，输入你听到的内容')}</span>`;
+    // Listen hint: just a play hint, optionally showing the item.
+    if (show) {
+      const itemText = state.item ?? '';
+      els.promptHint().innerHTML =
+        `<span class="hint-text">${escapeHtml(t('prompt.listenHint') || '🔊 点击播放后，输入你听到的内容')}</span>` +
+        `<span style="margin-left:8px">${escapeHtml(t('prompt.target'))}</span>` +
+        `<span class="prompt-item" style="margin-left:6px">${escapeHtml(itemText)}</span>`;
+      els.promptHint().classList.remove('hidden-by-toggle');
+    } else {
+      els.promptHint().innerHTML =
+        `<span class="hint-text">${escapeHtml(t('prompt.listenHint') || '🔊 点击播放后，输入你听到的内容')}</span>`;
+      els.promptHint().classList.remove('hidden-by-toggle');
+    }
   }
+}
+
+/** Update the toggle button label/icon/active state based on current direction + showAnswer. */
+function renderToggleHintButton() {
+  const btn = els.toggleHintBtn();
+  if (!btn) return;
+  const show = getShowAnswer();
+  // Label reflects the ACTION the button will perform, not the current state.
+  // "显示答案" means "click to reveal" (current state: hidden)
+  // "隐藏答案" means "click to hide" (current state: shown)
+  const label = show ? t('prompt.hideAnswer') : t('prompt.showAnswer');
+  const labelEl = els.toggleHintLabel();
+  if (labelEl) labelEl.textContent = label;
+  const iconEl = els.toggleHintIcon();
+  if (iconEl) iconEl.textContent = show ? '🙈' : '👁️';
+  btn.classList.toggle('active', show);
+  btn.setAttribute('aria-pressed', show ? 'true' : 'false');
 }
 
 function renderInput(value) {
@@ -424,6 +510,20 @@ function bindResetStatsButton() {
     if (!ok) return;
     resetProgress();
     renderStats();
+  });
+}
+
+// ─── Toggle answer hint button ───
+
+/** Bind the toggle button that controls whether the answer is revealed.
+ *  In forward mode (see morse → type), defaults to showing the answer;
+ *  in listen mode (hear morse → type), defaults to hiding it. Both
+ *  preferences are persisted per-direction in localStorage. */
+function bindToggleHintButton() {
+  const btn = els.toggleHintBtn();
+  if (!btn) return;
+  btn.addEventListener('click', () => {
+    setShowAnswer(!getShowAnswer());
   });
 }
 

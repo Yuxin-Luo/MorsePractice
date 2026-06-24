@@ -263,6 +263,7 @@ body {
   font-size: 14px;
   flex-wrap: wrap;
 }
+.prompt-hint.hidden-by-toggle { display: none; }
 .hint-text {
   color: var(--text-mute);
 }
@@ -277,6 +278,65 @@ body {
   border-radius: 4px;
   border: 1px solid var(--border);
   letter-spacing: 1px;
+}
+.prompt-item.hidden-by-toggle {
+  display: inline-block;
+  /* Mask the answer with a placeholder so the row layout is stable */
+  visibility: hidden;
+  position: relative;
+}
+.prompt-item.hidden-by-toggle::after {
+  content: '?';
+  visibility: visible;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--text-mute);
+}
+
+/* ─── Toggle hint button ─── */
+.prompt-hint-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.toggle-hint-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0.3px;
+  transition: all 0.15s;
+  box-shadow: var(--shadow-sm);
+}
+.toggle-hint-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+  background: var(--accent-soft);
+}
+.toggle-hint-btn.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.toggle-hint-btn .toggle-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+.toggle-hint-btn .toggle-label {
+  line-height: 1;
 }
 
 /* Input area */
