@@ -58,6 +58,7 @@ export function generateQuestion(mode) {
   } else if (mode === 'sentence') {
     item = randItem(SENTENCES);
   } else {
+    console.error('[generateQuestion] invalid mode:', JSON.stringify(mode), 'type:', typeof mode, 'stack:', new Error().stack);
     throw new Error(`Unknown mode: ${mode}`);
   }
   return { item, morse: encode(item), mode };
