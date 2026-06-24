@@ -1,5 +1,25 @@
-# Ignore ReferenceRepositories directory
+# Dependencies
+node_modules/
+
+# Test output
+coverage/
+*.lcov
+.nyc_output/
+
+# Editor / OS
+.DS_Store
+*.log
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Build artifacts
+dist/
+build/
+
+# Reference repos (kept locally, not in version control)
 ReferenceRepositories/
 
-# Ignore .git directory
-.git/
+# Local env
+.env
+.env.local
