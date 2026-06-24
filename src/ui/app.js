@@ -14,7 +14,7 @@
  *   - Direction/mode change resets history (different topic)
  */
 
-import { createForwardSession, generateQuestion } from '../modes/forward.js';
+import { createForwardSession, generateQuestion, judgeAnswer } from '../modes/forward.js';
 import { createListenSession, generateListenQuestion } from '../modes/listen.js';
 import { playMorse, stop } from '../core/audio.js';
 import { loadProgress, saveProgress, recordAttempt, getSummary } from '../storage/progress.js';
@@ -99,7 +99,12 @@ function startSession() {
   els.modeButtons().forEach((b) => {
     b.classList.toggle('active', b.dataset.mode === subMode);
   });
-  session = createFactory()({ mode: subMode });
+  // We don't need a session object — history is the source of truth. The
+  // session was previously used for judging, but its `current` field got
+  // stale after the first nextQuestion() call (it was only initialized
+  // once in startSession). Now we use judgeAnswer() directly with the
+  // history's item, which is always up-to-date.
+  session = null;
   history = [makeState(generateFresh())];
   historyIndex = 0;
   renderCurrent();
@@ -132,19 +137,17 @@ function renderCurrent() {
 }
 
 function nextQuestion() {
-  // Judge and record the current question
+  // Judge the current question (if there's input) using history's item,
+  // NOT the session's internal current (which can be stale).
   const current = history[historyIndex];
   const input = els.inputField().value;
   if (current && input) {
-    session.setInput(input);
-    const result = session.submit();
-    if (result) {
-      const updated = { ...current, input, result };
-      history[historyIndex] = updated;
-      recordAndPersist(updated.item, updated.input, result.isCorrect);
-    } else if (input !== current.input) {
-      history[historyIndex] = { ...current, input };
-    }
+    const result = judgeAnswer(current.item, input);
+    const updated = { ...current, input, result };
+    history[historyIndex] = updated;
+    recordAndPersist(updated.item, updated.input, result.isCorrect);
+  } else if (current && input !== current.input) {
+    history[historyIndex] = { ...current, input };
   }
   // Generate a new question
   history.push(makeState(generateFresh()));
@@ -191,14 +194,12 @@ function bindActionButtons() {
   els.retryBtn().addEventListener('click', () => {
     const state = history[historyIndex];
     if (!state) return;
-    session.setInput(els.inputField().value);
-    const result = session.submit();
-    if (result) {
-      const updated = { ...state, input: els.inputField().value, result };
-      history[historyIndex] = updated;
-      renderResult(updated);
-      recordAndPersist(updated.item, updated.input, result.isCorrect);
-    }
+    const input = els.inputField().value;
+    const result = judgeAnswer(state.item, input);
+    const updated = { ...state, input, result };
+    history[historyIndex] = updated;
+    renderResult(updated);
+    recordAndPersist(updated.item, updated.input, result.isCorrect);
     updateNavButtons();
   });
 
@@ -216,20 +217,17 @@ function bindActionButtons() {
 function bindInputField() {
   const input = els.inputField();
   input.addEventListener('input', () => {
-    if (session) session.setInput(input.value);
+    // No-op: history is the source of truth, we read input.value at submit time.
   });
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       const state = history[historyIndex];
       if (!state) return;
-      session.setInput(input.value);
-      const result = session.submit();
-      if (result) {
-        const updated = { ...state, input: input.value, result };
-        history[historyIndex] = updated;
-        renderResult(updated);
-        recordAndPersist(updated.item, updated.input, result.isCorrect);
-      }
+      const result = judgeAnswer(state.item, input.value);
+      const updated = { ...state, input: input.value, result };
+      history[historyIndex] = updated;
+      renderResult(updated);
+      recordAndPersist(updated.item, updated.input, result.isCorrect);
       updateNavButtons();
     }
   });

@@ -130,4 +130,37 @@ describe('app state machine: feedback clearing on direction switch', () => {
     app.nextQuestion();
     expect(app.getCurrentResult()).toBeNull();
   });
+
+  /**
+   * REGRESSION: previously the app used session.submit() to judge answers.
+   * But the session's internal `current` was set once in startSession() and
+   * never updated, so after the first nextQuestion() call, every judgment
+   * was against the FIRST question's item, not the displayed one. This
+   * caused "expected: 7 / you typed: 7" to be marked wrong.
+   *
+   * Fix: judging is now done directly against history[historyIndex].item
+   * using judgeAnswer(). This test verifies the fix: when we go to the next
+   * question, the judging compares the new item (not the old one).
+   */
+  it('after nextQuestion, judging uses the NEW question item (regression)', () => {
+    const app = createAppHarness();
+    app.setDirection('listen');
+    // Simulate that the first question was answered correctly
+    const firstItem = app.getCurrentState().item;
+    app.submit(firstItem);
+    expect(app.getCurrentResult().isCorrect).toBe(true);
+    // Move to next question
+    app.nextQuestion();
+    const secondItem = app.getCurrentState().item;
+    // User types exactly the new item — should be judged correct
+    // (regardless of what the first item was)
+    app.submit(secondItem);
+    expect(app.getCurrentResult().isCorrect).toBe(true);
+    // User types a known wrong string
+    app.nextQuestion();
+    const thirdItem = app.getCurrentState().item;
+    app.submit('DEFINITELY_WRONG_ANSWER');
+    expect(app.getCurrentResult().isCorrect).toBe(false);
+    expect(app.getCurrentResult().expected).toBe(thirdItem);
+  });
 });
