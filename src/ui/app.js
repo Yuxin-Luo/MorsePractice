@@ -67,14 +67,16 @@ export function initApp() {
 
 /** Start a fresh session. Resets history. Used on boot and on direction/mode change. */
 function startSession() {
+  // Defensive: clear stale feedback from previous question/session BEFORE
+  // rendering the new one. This guarantees no leftover error message is
+  // visible after a direction/mode change.
+  clearFeedback();
   els.directionButtons().forEach((b) => {
     b.classList.toggle('active', b.dataset.direction === direction);
   });
   els.modeButtons().forEach((b) => {
     b.classList.toggle('active', b.dataset.mode === subMode);
   });
-  // We don't really need a session object — we use generateQuestion / generateListenQuestion
-  // directly. But we keep session for API compatibility (setInput/submit used by retry/Enter).
   session = createFactory()(subMode);
   history = [makeState(generateFresh())];
   historyIndex = 0;
@@ -134,6 +136,9 @@ function bindDirectionButtons() {
     btn.addEventListener('click', () => {
       const d = btn.dataset.direction;
       if (direction === d) return;
+      // Defensive: hide stale feedback before re-rendering
+      clearFeedback();
+      stop();
       direction = d;
       startSession();
     });
@@ -145,6 +150,8 @@ function bindModeButtons() {
     btn.addEventListener('click', () => {
       const m = btn.dataset.mode;
       if (subMode === m) return;
+      clearFeedback();
+      stop();
       subMode = m;
       startSession();
     });
