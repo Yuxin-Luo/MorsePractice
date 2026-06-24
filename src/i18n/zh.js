@@ -26,6 +26,7 @@ export default {
     retry: '重试',
     next: '下一题',
     prev: '上一题',
+    reference: '📖 摩斯码表',
   },
   feedback: {
     correct: '✅ 正确！',
@@ -47,6 +48,12 @@ export default {
     next: '下一题',
     prev: '上一题',
     submit: '提交答案',
+    direction: '切换看码/听码',
+    reference: '打开码表',
+  },
+  reference: {
+    title: '📖 摩斯码表',
+    hint: '点击任意字符可听到声音',
   },
   language: {
     switchTo: 'EN',

@@ -26,6 +26,7 @@ export default {
     retry: 'Retry',
     next: 'Next',
     prev: 'Previous',
+    reference: '📖 Morse chart',
   },
   feedback: {
     correct: '✅ Correct!',
@@ -47,6 +48,12 @@ export default {
     next: 'Next',
     prev: 'Previous',
     submit: 'Submit',
+    direction: 'Switch see/hear',
+    reference: 'Open chart',
+  },
+  reference: {
+    title: '📖 Morse code chart',
+    hint: 'Click any character to hear it',
   },
   language: {
     switchTo: '中文',

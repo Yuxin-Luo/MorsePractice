@@ -58,6 +58,10 @@
       <button id="btn-next" class="action-btn primary" data-i18n="action.next">下一题 →</button>
     </section>
 
+    <div class="secondary-bar">
+      <button id="btn-reference" class="secondary-btn" data-i18n="action.reference">📖 摩斯码表</button>
+    </div>
+
     <section class="result-panel" id="result-panel">
       <h3 data-i18n="stats.title">📊 累计统计</h3>
       <div class="stats-grid">
@@ -84,9 +88,24 @@
         <li><kbd>N</kbd> <span data-i18n="tips.next">下一题</span></li>
         <li><kbd>P</kbd> <span data-i18n="tips.prev">上一题</span></li>
         <li><kbd>Enter</kbd> <span data-i18n="tips.submit">提交答案</span></li>
+        <li><kbd>1</kbd>/<kbd>2</kbd> <span data-i18n="tips.direction">切换看码/听码</span></li>
+        <li><kbd>?</kbd> <span data-i18n="tips.reference">打开码表</span></li>
       </ul>
     </section>
   </main>
+
+  <!-- Reference modal: morse code chart -->
+  <div id="reference-modal" class="modal" aria-hidden="true" role="dialog">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card">
+      <header class="modal-header">
+        <h2 data-i18n="reference.title">📖 摩斯码表</h2>
+        <button id="modal-close" class="modal-close" aria-label="Close">×</button>
+      </header>
+      <p class="modal-hint" data-i18n="reference.hint">点击任意字符可听到声音</p>
+      <div id="chart-grid" class="chart-grid"></div>
+    </div>
+  </div>
 
   <script type="module" src="./src/main.js"></script>
 </body>

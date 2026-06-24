@@ -5,19 +5,21 @@
  *   forward:  see-morse → type-target  (uses modes/forward.js)
  *   listen:   hear-morse → type-target  (uses modes/listen.js)
  *
- * Architecture:
- *   - The session factory and helpers are imported per direction.
- *   - The same DOM elements (morse display, input, action buttons) are
- *     reused — only the prompts and the play button behavior differ.
- *   - 'direction' state lives at the top; switching direction tears down
- *     the current session and creates a new one with the same sub-mode.
+ * History model:
+ *   - history[] holds every question we've been on, in order
+ *   - historyIndex points to the current position
+ *   - 'next' judges+records the current question, generates a new one, appends
+ *   - 'prev' just decrements historyIndex and renders the saved state
+ *   - 'retry' re-judges the same item with the current input
+ *   - Direction/mode change resets history (different topic)
  */
 
-import { createForwardSession } from '../modes/forward.js';
-import { createListenSession } from '../modes/listen.js';
+import { createForwardSession, generateQuestion } from '../modes/forward.js';
+import { createListenSession, generateListenQuestion } from '../modes/listen.js';
 import { playMorse, stop } from '../core/audio.js';
 import { loadProgress, saveProgress, recordAttempt, getSummary } from '../storage/progress.js';
 import { t } from '../i18n/index.js';
+import { MORSE } from '../core/morse-table.js';
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
@@ -26,7 +28,6 @@ const els = {
   directionButtons: () => $$('.direction-btn'),
   modeButtons: () => $$('.mode-btn'),
   promptMorse: () => $('#prompt-morse'),
-  promptItem: () => $('#prompt-item'),
   promptHint: () => $('#prompt-hint'),
   inputField: () => $('#answer-input'),
   playBtn: () => $('#btn-play'),
@@ -37,14 +38,17 @@ const els = {
   statTotal: () => $('#stat-total'),
   statAccuracy: () => $('#stat-accuracy'),
   statChars: () => $('#stat-chars'),
+  referenceBtn: () => $('#btn-reference'),
+  referenceModal: () => $('#reference-modal'),
+  modalClose: () => $('#modal-close'),
+  chartGrid: () => $('#chart-grid'),
 };
 
 let session = null;
-let direction = 'forward'; // 'forward' | 'listen'
-let subMode = 'letter'; // 'letter' | 'word' | 'sentence'
+let direction = 'forward';
+let subMode = 'letter';
 let history = [];
 let historyIndex = -1;
-let morseVisible = true; // For forward: whether morse code is shown
 
 /** Initialize the app. */
 export function initApp() {
@@ -54,13 +58,14 @@ export function initApp() {
   bindActionButtons();
   bindInputField();
   bindKeyboardShortcuts();
+  bindReferenceModal();
   startSession();
   document.addEventListener('i18n:applied', () => {
-    // Re-render prompt hint label and feedback
-    renderPrompt(session.getState());
+    if (session) renderPrompt(history[historyIndex]);
   });
 }
 
+/** Start a fresh session. Resets history. Used on boot and on direction/mode change. */
 function startSession() {
   els.directionButtons().forEach((b) => {
     b.classList.toggle('active', b.dataset.direction === direction);
@@ -68,30 +73,60 @@ function startSession() {
   els.modeButtons().forEach((b) => {
     b.classList.toggle('active', b.dataset.mode === subMode);
   });
-  const factory = direction === 'forward' ? createForwardSession : createListenSession;
-  session = factory({
-    mode: subMode,
-    onItemChange: (state) => {
-      renderPrompt(state);
-      renderInput(state.input);
-      clearFeedback();
-      // In listen mode, auto-play the new question.
-      if (direction === 'listen') autoPlay();
-    },
-    onResult: (state) => {
-      renderResult(state);
-      pushHistory(state);
-    },
-    onPlayEnd: () => {
-      // Could update UI to "audio done" — for v1 just leave as-is
-    },
-  });
-  // Show/hide morse display depending on direction
-  els.promptMorse().classList.toggle('hidden', direction === 'listen');
-  history = [session.getState()];
+  // We don't really need a session object — we use generateQuestion / generateListenQuestion
+  // directly. But we keep session for API compatibility (setInput/submit used by retry/Enter).
+  session = createFactory()(subMode);
+  history = [makeState(generateFresh())];
   historyIndex = 0;
-  // Refresh play button label
-  updateActionLabels();
+  renderCurrent();
+  els.promptMorse().classList.toggle('hidden', direction === 'listen');
+  if (direction === 'listen') autoPlay();
+}
+
+function createFactory() {
+  return direction === 'forward' ? createForwardSession : createListenSession;
+}
+
+function generateFresh() {
+  return direction === 'forward'
+    ? generateQuestion(subMode)
+    : generateListenQuestion(subMode);
+}
+
+function makeState(q) {
+  return { mode: subMode, item: q.item, morse: q.morse, input: '', result: null };
+}
+
+/** Render whatever history[historyIndex] is. */
+function renderCurrent() {
+  const state = history[historyIndex];
+  if (!state) return;
+  renderPrompt(state);
+  renderInput(state.input || '');
+  if (state.result) renderResult(state); else clearFeedback();
+  updateNavButtons();
+}
+
+function nextQuestion() {
+  // Judge and record the current question
+  const current = history[historyIndex];
+  const input = els.inputField().value;
+  if (current && input) {
+    session.setInput(input);
+    const result = session.submit();
+    if (result) {
+      const updated = { ...current, input, result };
+      history[historyIndex] = updated;
+      recordAndPersist(updated.item, updated.input, result.isCorrect);
+    } else if (input !== current.input) {
+      history[historyIndex] = { ...current, input };
+    }
+  }
+  // Generate a new question
+  history.push(makeState(generateFresh()));
+  historyIndex = history.length - 1;
+  renderCurrent();
+  if (direction === 'listen') autoPlay();
 }
 
 function bindDirectionButtons() {
@@ -118,36 +153,34 @@ function bindModeButtons() {
 
 function bindActionButtons() {
   els.playBtn().addEventListener('click', async () => {
-    if (!session) return;
-    const state = session.getState();
-    if (!state.morse) return;
+    const state = history[historyIndex];
+    if (!state?.morse) return;
     stop();
     await playMorse(state.morse, { wpm: 15, frequency: 600, volume: 0.25 });
   });
 
   els.retryBtn().addEventListener('click', () => {
-    if (!session) return;
+    const state = history[historyIndex];
+    if (!state) return;
     session.setInput(els.inputField().value);
     const result = session.submit();
-    if (result) recordAndPersist(session.getState().item, session.getState().input, result.isCorrect);
+    if (result) {
+      const updated = { ...state, input: els.inputField().value, result };
+      history[historyIndex] = updated;
+      renderResult(updated);
+      recordAndPersist(updated.item, updated.input, result.isCorrect);
+    }
+    updateNavButtons();
   });
 
   els.nextBtn().addEventListener('click', () => {
-    if (!session) return;
-    session.setInput(els.inputField().value);
-    const result = session.submit();
-    if (result) recordAndPersist(session.getState().item, session.getState().input, result.isCorrect);
-    // Generate a new question with same direction + subMode
-    startSession();
+    nextQuestion();
   });
 
   els.prevBtn().addEventListener('click', () => {
     if (historyIndex <= 0) return;
     historyIndex--;
-    const state = history[historyIndex];
-    renderPrompt(state);
-    renderInput(state.input);
-    if (state.result) renderResult(state); else clearFeedback();
+    renderCurrent();
   });
 }
 
@@ -158,11 +191,17 @@ function bindInputField() {
   });
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
-      if (session) {
-        session.setInput(input.value);
-        const result = session.submit();
-        if (result) recordAndPersist(session.getState().item, session.getState().input, result.isCorrect);
+      const state = history[historyIndex];
+      if (!state) return;
+      session.setInput(input.value);
+      const result = session.submit();
+      if (result) {
+        const updated = { ...state, input: input.value, result };
+        history[historyIndex] = updated;
+        renderResult(updated);
+        recordAndPersist(updated.item, updated.input, result.isCorrect);
       }
+      updateNavButtons();
     }
   });
 }
@@ -183,28 +222,43 @@ function bindKeyboardShortcuts() {
       document.querySelector('.direction-btn[data-direction="forward"]').click();
     } else if (e.key === '2') {
       document.querySelector('.direction-btn[data-direction="listen"]').click();
+    } else if (e.key === '?') {
+      els.referenceBtn()?.click();
     }
   });
 }
 
 async function autoPlay() {
-  if (!session) return;
   stop();
-  await new Promise((r) => setTimeout(r, 200)); // small gap between questions
-  const state = session.getState();
-  if (state.morse) {
+  await new Promise((r) => setTimeout(r, 200));
+  const state = history[historyIndex];
+  if (state?.morse) {
     await playMorse(state.morse, { wpm: 15, frequency: 600, volume: 0.25 });
   }
 }
 
+/** Render a morse string as pretty HTML: · for dot, − for dah, gap between letters. */
+function renderMorseHTML(morse) {
+  if (!morse) return '';
+  return morse
+    .split(' ')
+    .map((token) => {
+      if (token === '/') return '<span class="word-gap">⫶</span>';
+      if (token === '') return '';
+      const pretty = token
+        .replace(/\./g, '<span class="dit">·</span>')
+        .replace(/-/g, '<span class="dah">−</span>');
+      return `<span class="letter">${pretty}</span>`;
+    })
+    .join('<span class="letter-gap">·</span>');
+}
+
 function renderPrompt(state) {
   if (direction === 'forward') {
-    els.promptMorse().textContent = state.morse ?? '';
+    els.promptMorse().innerHTML = renderMorseHTML(state.morse ?? '');
     els.promptMorse().classList.remove('hidden');
-    els.promptItem().textContent = state.item ?? '';
-    els.promptHint().innerHTML = `<span>${escapeHtml(t('prompt.target'))}</span> <span class="prompt-item" id="prompt-item">${escapeHtml(state.item ?? '')}</span> <span class="hint-text hint-dim">${escapeHtml(t('prompt.hint'))}</span>`;
+    els.promptHint().innerHTML = `<span>${escapeHtml(t('prompt.target'))}</span> <span class="prompt-item">${escapeHtml(state.item ?? '')}</span> <span class="hint-text hint-dim">${escapeHtml(t('prompt.hint'))}</span>`;
   } else {
-    // listen: don't show morse; show "Press play to listen" hint
     els.promptMorse().classList.add('hidden');
     els.promptHint().innerHTML = `<span class="hint-text">${escapeHtml(t('prompt.listenHint') || '🔊 点击播放后，输入你听到的内容')}</span>`;
   }
@@ -231,14 +285,13 @@ function renderResult(state) {
   if (status === 'correct') {
     fb.textContent = t('feedback.correct');
   } else if (status === 'wrong') {
-    // In listen mode, also reveal the answer in morse for learning
     const morseReveal = direction === 'listen'
-      ? `<div class="morse-reveal">${escapeHtml(state.morse ?? '')}</div>`
+      ? `<div class="morse-reveal-label">${escapeHtml(t('feedback.expected'))}</div><div class="morse-reveal">${renderMorseHTML(state.morse ?? '')}</div>`
       : '';
     fb.innerHTML = `<div>${escapeHtml(t('feedback.wrong'))}</div><div class="expected">${escapeHtml(t('feedback.expected'))}<code>${escapeHtml(state.item)}</code></div><div class="actual">${escapeHtml(t('feedback.youTyped'))}<code>${escapeHtml(result.actual)}</code></div>${morseReveal}`;
   } else {
     const morseReveal = direction === 'listen'
-      ? `<div class="morse-reveal">${escapeHtml(state.morse ?? '')}</div>`
+      ? `<div class="morse-reveal-label">${escapeHtml(t('feedback.expected'))}</div><div class="morse-reveal">${renderMorseHTML(state.morse ?? '')}</div>`
       : '';
     fb.innerHTML = `<div>${escapeHtml(t('feedback.partial'))}</div><div class="char-diff"></div>${morseReveal}`;
     const diff = fb.querySelector('.char-diff');
@@ -257,13 +310,15 @@ function clearFeedback() {
   fb.textContent = '';
 }
 
-function pushHistory(state) {
-  if (history.length && history[history.length - 1].item === state.item) {
-    history[history.length - 1] = state;
-    return;
+function updateNavButtons() {
+  if (els.prevBtn()) {
+    els.prevBtn().disabled = historyIndex <= 0;
+    els.prevBtn().style.opacity = historyIndex <= 0 ? '0.4' : '1';
   }
-  history.push(state);
-  historyIndex = history.length - 1;
+  if (els.nextBtn()) {
+    const label = `${t('action.next')} (${historyIndex + 1}/${history.length})`;
+    els.nextBtn().textContent = label;
+  }
 }
 
 function recordAndPersist(item, input, isCorrect) {
@@ -281,11 +336,58 @@ function renderStats() {
   if (els.statChars()) els.statChars().textContent = sum.uniqueChars;
 }
 
-function updateActionLabels() {
-  // Just re-render via applyTranslations is overkill; tags static.
-  // We re-render the play button label per direction.
-  const playLabel = direction === 'listen' ? '🔊 播放' : '🔊 播放';
-  els.playBtn().textContent = playLabel;
+// ─── Reference modal ───
+
+function bindReferenceModal() {
+  if (!els.referenceBtn()) return;
+  els.referenceBtn().addEventListener('click', openReferenceModal);
+  if (els.modalClose()) els.modalClose().addEventListener('click', closeReferenceModal);
+  if (els.referenceModal()) {
+    els.referenceModal().addEventListener('click', (e) => {
+      if (e.target === els.referenceModal()) closeReferenceModal();
+    });
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && els.referenceModal()?.classList.contains('open')) {
+      closeReferenceModal();
+    }
+  });
+}
+
+function openReferenceModal() {
+  buildChartGrid();
+  els.referenceModal().classList.add('open');
+  els.referenceModal().setAttribute('aria-hidden', 'false');
+}
+
+function closeReferenceModal() {
+  els.referenceModal()?.classList.remove('open');
+  els.referenceModal()?.setAttribute('aria-hidden', 'true');
+}
+
+function buildChartGrid() {
+  const grid = els.chartGrid();
+  if (!grid) return;
+  grid.innerHTML = '';
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split('');
+  for (const ch of chars) {
+    const code = MORSE[ch] || '';
+    const card = document.createElement('button');
+    card.className = 'chart-card';
+    card.type = 'button';
+    card.title = `点击播放 ${ch}`;
+    card.innerHTML = `
+      <div class="chart-char">${ch}</div>
+      <div class="chart-code">${code.replace(/\./g, '·').replace(/-/g, '−')}</div>
+    `;
+    card.addEventListener('click', async () => {
+      card.classList.add('playing');
+      stop();
+      await playMorse(code, { wpm: 12, frequency: 600, volume: 0.25 });
+      card.classList.remove('playing');
+    });
+    grid.appendChild(card);
+  }
 }
 
 function escapeHtml(s) {
