@@ -140,3 +140,75 @@ export function stop() {
     _activeAbort = null;
   }
 }
+
+/**
+ * Play a single tone of arbitrary duration.
+ *
+ * Used by the straight-key page where the user dictates the dit/dah
+ * length via hold time. The tone is generated using the same ADSR
+ * envelope as playMorse (attack 5ms, release 10ms) so it blends
+ * seamlessly with auto-played morse.
+ *
+ * @param {object} [opts]
+ * @param {number} opts.durationMs - tone length in milliseconds
+ * @param {number} [opts.frequency=600] - tone frequency in Hz
+ * @param {number} [opts.volume=0.25] - peak gain (0-1)
+ * @returns {OscillatorNode|null} the oscillator instance, so the caller
+ *   can stop it early via stopTone() if the user releases the key before
+ *   durationMs elapses. Returns null on invalid input (no audio context).
+ */
+export function playTone(opts = {}) {
+  const { durationMs, frequency = 600, volume = 0.25 } = opts;
+  if (!Number.isFinite(durationMs) || durationMs <= 0) return null;
+  const ctx = getAudioContext();
+  if (!ctx) return null;
+
+  // Resume context if suspended (iOS Safari auto-suspends).
+  if (ctx.state === 'suspended') ctx.resume();
+
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = frequency;
+  gain.gain.value = 0;
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+
+  const t0 = ctx.currentTime + 0.005; // tiny lead-in to avoid races
+  const dur = durationMs / 1000;
+  const attack = 0.005;
+  const release = 0.01;
+  // Guard against release eating the entire tone (very short dit)
+  const sustainEnd = Math.max(t0 + attack + 0.001, t0 + dur - release);
+
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(volume, t0 + attack);
+  gain.gain.setValueAtTime(volume, sustainEnd);
+  gain.gain.linearRampToValueAtTime(0, t0 + dur);
+
+  osc.start(t0);
+  osc.stop(t0 + dur + 0.02);
+
+  // Auto-cleanup when the oscillator naturally ends.
+  osc.onended = () => {
+    try { osc.disconnect(); gain.disconnect(); } catch {}
+  };
+
+  return osc;
+}
+
+/**
+ * Force-stop a tone started by playTone(). Safe to call multiple times
+ * and on null/undefined. Use this when the user releases the key
+ * earlier than the requested duration.
+ *
+ * @param {OscillatorNode|null|undefined} osc
+ */
+export function stopTone(osc) {
+  if (!osc) return;
+  try {
+    osc.stop();
+  } catch {
+    // Already stopped — ignore.
+  }
+}
