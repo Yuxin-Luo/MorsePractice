@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { MORSE, FROM_MORSE, encode, decode, isValidPrefix, timing } from '../src/core/encoder.js';
+import { MORSE, FROM_MORSE, encode, decode, isValidPrefix, timing, getPossibleChars } from '../src/core/encoder.js';
 
 describe('MORSE table', () => {
   it('contains all 26 English letters', () => {
@@ -147,3 +147,60 @@ describe('timing()', () => {
     expect(timing(15).wordGap).toBe((1200 / 15) * 7);
   });
 });
+
+describe('getPossibleChars (real-time prefix lookup)', () => {
+  it('returns every character when prefix is empty', () => {
+    const chars = getPossibleChars('');
+    // MORSE table has alphanumerics + common punctuation
+    expect(chars.length).toBe(Object.keys(MORSE).length);
+    expect(chars).toEqual(expect.arrayContaining(['E', 'T', 'A', 'S', 'H', '5', '0']));
+  });
+
+  it('returns every character when prefix is omitted', () => {
+    expect(getPossibleChars().length).toBe(Object.keys(MORSE).length);
+  });
+
+  it('returns chars for a single dit prefix', () => {
+    // Includes E=.  I=..  S=...  H=....  5=.....  T=-  A=.- etc. (anything starting with .)
+    const chars = getPossibleChars('.');
+    expect(chars).toEqual(expect.arrayContaining(['E', 'I', 'S', 'H', '5']));
+    // Sanity: it MUST include the E (the pure dit)
+    expect(chars).toContain('E');
+    // A prefix `.` matches A=.-, T=-, etc.
+    expect(chars.length).toBeGreaterThan(5);
+  });
+
+  it('returns chars for .- prefix', () => {
+    // A=.-  R=.-.  W=.--  N=-. etc. (anything starting with .-)
+    const chars = getPossibleChars('.-');
+    expect(chars).toEqual(expect.arrayContaining(['A', 'R', 'W']));
+    // Should NOT contain pure dit (E=.) or pure dah (T=-)
+    expect(chars).not.toContain('E');
+    expect(chars).not.toContain('T');
+  });
+
+  it('returns multiple chars for a prefix that\'s a prefix of multiple codes', () => {
+    // .... matches H=...., 4=....-, 5=.....
+    expect(getPossibleChars('....').sort()).toEqual(['4', '5', 'H'].sort());
+  });
+
+  it('returns one or few chars for a near-complete code', () => {
+    // .---- is 1; .----. is ' (apostrophe) — both share the prefix
+    expect(getPossibleChars('.----')).toEqual(expect.arrayContaining(['1']));
+    expect(getPossibleChars('.----').length).toBeLessThanOrEqual(2);
+    // ----. is uniquely 9 (since ----.. isn't a thing)
+    expect(getPossibleChars('----.')).toEqual(['9']);
+  });
+
+  it('returns empty array for an invalid prefix', () => {
+    expect(getPossibleChars('....x')).toEqual([]);
+    expect(getPossibleChars('z')).toEqual([]);
+  });
+
+  it('treats empty / null / undefined input as empty prefix (returns all chars)', () => {
+    const baseline = getPossibleChars('');
+    expect(getPossibleChars(null)).toEqual(baseline);
+    expect(getPossibleChars(undefined)).toEqual(baseline);
+  });
+});
+

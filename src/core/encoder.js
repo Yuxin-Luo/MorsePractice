@@ -89,3 +89,29 @@ export function timing(wpm, farnsworth = wpm) {
     wordGap: slowUnit * 7,
   };
 }
+
+/**
+ * Return all Morse characters whose code starts with `prefix`.
+ *
+ * Used by the straight-key page for real-time feedback: as the user
+ * taps out dots and dashes, this function tells them which letters
+ * are still possible. Example: prefix `.-` → ['A', 'R', 'W'].
+ *
+ * NOTE: this helper is intended for **a single letter** prefix. For
+ * multi-letter input (e.g. an entire word), split on spaces first
+ * and call per-token.
+ *
+ * @param {string} [prefix=''] - ASCII morse prefix ('.' / '-'); empty
+ *   string returns every known character.
+ * @returns {string[]} matching characters
+ */
+export function getPossibleChars(prefix = '') {
+  // Coerce null/undefined to empty string before checking
+  const p = prefix == null ? '' : String(prefix);
+  if (!p) return Object.keys(MORSE);
+  const out = [];
+  for (const [ch, code] of Object.entries(MORSE)) {
+    if (code.startsWith(p)) out.push(ch);
+  }
+  return out;
+}
