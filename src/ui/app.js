@@ -52,6 +52,7 @@ let historyIndex = -1;
 
 /** Initialize the app. */
 export function initApp() {
+  console.log('[initApp] start, subMode =', JSON.stringify(subMode), 'direction =', JSON.stringify(direction));
   renderStats();
   bindDirectionButtons();
   bindModeButtons();
@@ -59,7 +60,16 @@ export function initApp() {
   bindInputField();
   bindKeyboardShortcuts();
   bindReferenceModal();
-  startSession();
+  try {
+    startSession();
+  } catch (err) {
+    console.error('[initApp] startSession failed:', err);
+    console.error('  subMode =', JSON.stringify(subMode));
+    console.error('  direction =', JSON.stringify(direction));
+    console.error('  history =', JSON.stringify(history));
+    console.error('  session =', session);
+    throw err;
+  }
   document.addEventListener('i18n:applied', () => {
     if (session) renderPrompt(history[historyIndex]);
   });
@@ -67,10 +77,22 @@ export function initApp() {
 
 /** Start a fresh session. Resets history. Used on boot and on direction/mode change. */
 function startSession() {
+  // Defensive: if any module-level state was lost (shouldn't happen, but
+  // protects against weird caching/timing issues), restore sensible defaults.
+  if (!['letter', 'word', 'sentence'].includes(subMode)) {
+    console.warn('[startSession] subMode was invalid, resetting to letter:', subMode);
+    subMode = 'letter';
+  }
+  if (!['forward', 'listen'].includes(direction)) {
+    console.warn('[startSession] direction was invalid, resetting to forward:', direction);
+    direction = 'forward';
+  }
   // Defensive: clear stale feedback from previous question/session BEFORE
   // rendering the new one. This guarantees no leftover error message is
   // visible after a direction/mode change.
-  clearFeedback();
+  try {
+    clearFeedback();
+  } catch (e) { /* no DOM yet */ }
   els.directionButtons().forEach((b) => {
     b.classList.toggle('active', b.dataset.direction === direction);
   });
