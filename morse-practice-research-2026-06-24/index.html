@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>摩斯密码练习器 · 开源项目调研报告</title>
+<style>
+  :root {
+    --bg: #0f1226;
+    --bg-2: #1a1e3a;
+    --surface: #1f2347;
+    --surface-2: #2a2f5c;
+    --border: #353a72;
+    --text: #e8eaff;
+    --text-dim: #9fa4d4;
+    --text-mute: #6e73a8;
+    --accent: #7c5cff;
+    --accent-2: #4ecdc4;
+    --green: #4ade80;
+    --red: #f87171;
+    --yellow: #fbbf24;
+    --gold: #facc15;
+    --silver: #cbd5e1;
+    --bronze: #d97706;
+    --shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Hero */
+  .hero {
+    background: linear-gradient(135deg, #1a1e3a 0%, #2d1b69 50%, #1a1e3a 100%);
+    padding: 80px 24px 100px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background:
+      radial-gradient(circle at 20% 30%, rgba(124, 92, 255, 0.15) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(78, 205, 196, 0.12) 0%, transparent 50%);
+    pointer-events: none;
+  }
+  .hero-content { position: relative; z-index: 1; max-width: 1000px; margin: 0 auto; }
+  .hero h1 {
+    font-size: clamp(32px, 5vw, 52px);
+    font-weight: 800;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, #fff 0%, #b8a8ff 50%, #4ecdc4 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero .subtitle {
+    font-size: clamp(16px, 2vw, 19px);
+    color: var(--text-dim);
+    margin-bottom: 40px;
+  }
+  .verdict-badge {
+    display: inline-block;
+    padding: 12px 28px;
+    background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+    color: #052e16;
+    border-radius: 100px;
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 32px;
+    box-shadow: 0 4px 20px rgba(74, 222, 128, 0.3);
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  .stat-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 20px 16px;
+    backdrop-filter: blur(10px);
+  }
+  .stat-value {
+    font-size: 36px;
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
+  .stat-value.blue { color: #60a5fa; }
+  .stat-value.green { color: var(--green); }
+  .stat-value.red { color: var(--red); }
+  .stat-value.yellow { color: var(--yellow); }
+  .stat-label {
+    color: var(--text-dim);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* Container */
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* Sections */
+  section {
+    padding: 60px 0;
+  }
+  section h2 {
+    font-size: clamp(24px, 3vw, 32px);
+    font-weight: 700;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  section h2 .emoji { font-size: 1.2em; }
+  section .section-sub {
+    color: var(--text-dim);
+    margin-bottom: 32px;
+    font-size: 15px;
+  }
+
+  /* Key findings */
+  .findings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+  }
+  .finding-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .finding-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+  }
+  .finding-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .finding-icon {
+    font-size: 24px;
+    width: 40px;
+    height: 40px;
+    background: var(--surface-2);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .finding-num {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 100px;
+  }
+  .finding-status {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--green);
+    background: rgba(74, 222, 128, 0.15);
+    padding: 3px 10px;
+    border-radius: 100px;
+  }
+  .finding-card h3 {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    line-height: 1.4;
+  }
+  .finding-card .evidence {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+  .finding-card .implication {
+    background: rgba(124, 92, 255, 0.1);
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+    border-radius: 0 8px 8px 0;
+    font-size: 13px;
+    color: var(--text);
+  }
+  .finding-card .implication strong { color: var(--accent-2); }
+
+  /* Table */
+  .table-wrap {
+    overflow-x: auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 8px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 900px;
+  }
+  th, td {
+    text-align: left;
+    padding: 12px 14px;
+    font-size: 14px;
+  }
+  thead th {
+    background: var(--surface-2);
+    color: var(--text);
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: sticky;
+    top: 0;
+  }
+  thead th:first-child { border-radius: 10px 0 0 0; }
+  thead th:last-child { border-radius: 0 10px 0 0; }
+  tbody tr {
+    border-top: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+  tbody tr:hover { background: rgba(124, 92, 255, 0.05); }
+  tbody td:first-child { font-weight: 600; }
+  td a {
+    color: var(--accent-2);
+    text-decoration: none;
+    border-bottom: 1px dashed transparent;
+  }
+  td a:hover { border-bottom-color: var(--accent-2); }
+  .stars { color: var(--yellow); font-weight: 700; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .badge.yes { background: rgba(74, 222, 128, 0.18); color: var(--green); }
+  .badge.no { background: rgba(248, 113, 113, 0.18); color: var(--red); }
+  .badge.partial { background: rgba(251, 191, 36, 0.18); color: var(--yellow); }
+  .badge.archived { background: rgba(248, 113, 113, 0.18); color: var(--red); }
+  .badge.active { background: rgba(74, 222, 128, 0.18); color: var(--green); }
+  .badge.stale { background: rgba(251, 191, 36, 0.18); color: var(--yellow); }
+  .badge.new { background: rgba(96, 165, 250, 0.18); color: #60a5fa; }
+
+  /* Feature matrix */
+  .matrix-wrap {
+    overflow-x: auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 8px;
+  }
+  .matrix {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 800px;
+  }
+  .matrix th, .matrix td {
+    padding: 12px 14px;
+    text-align: center;
+    font-size: 14px;
+    border: 1px solid var(--border);
+  }
+  .matrix td:first-child, .matrix th:first-child {
+    text-align: left;
+    font-weight: 600;
+  }
+  .matrix thead th {
+    background: var(--surface-2);
+    color: var(--text);
+  }
+  .matrix .feature-col { background: var(--surface-2); }
+  .matrix .you-col {
+    background: linear-gradient(135deg, rgba(124, 92, 255, 0.15) 0%, rgba(78, 205, 196, 0.15) 100%);
+    font-weight: 700;
+  }
+  .matrix .summary-col { text-align: left; font-size: 13px; }
+
+  /* Roadmap */
+  .roadmap { display: flex; flex-direction: column; gap: 16px; }
+  .roadmap-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 20px;
+    align-items: start;
+    position: relative;
+    overflow: hidden;
+  }
+  .roadmap-item::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 4px;
+    background: var(--accent);
+  }
+  .roadmap-item.gold::before { background: var(--gold); }
+  .roadmap-item.silver::before { background: var(--silver); }
+  .roadmap-item.bronze::before { background: var(--bronze); }
+  .roadmap-item.green::before { background: var(--green); }
+
+  .roadmap-rank {
+    text-align: center;
+    font-size: 48px;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--text-dim);
+    opacity: 0.4;
+  }
+  .roadmap-rank.gold { color: var(--gold); opacity: 1; }
+  .roadmap-rank.silver { color: var(--silver); opacity: 1; }
+  .roadmap-rank.bronze { color: var(--bronze); opacity: 1; }
+  .roadmap-rank.green { color: var(--green); opacity: 1; }
+
+  .roadmap-content h3 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .roi { font-size: 14px; }
+  .effort-impact {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .tag {
+    display: inline-block;
+    background: var(--surface-2);
+    color: var(--text-dim);
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .tag.effort-low { background: rgba(74, 222, 128, 0.15); color: var(--green); }
+  .tag.effort-mid { background: rgba(251, 191, 36, 0.15); color: var(--yellow); }
+  .tag.effort-high { background: rgba(248, 113, 113, 0.15); color: var(--red); }
+  .tag.impact-high { background: rgba(124, 92, 255, 0.15); color: var(--accent); }
+  .tag.impact-mid { background: rgba(96, 165, 250, 0.15); color: #60a5fa; }
+  .roadmap-content p {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .action {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+  }
+
+  /* Tech stack */
+  .tech-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .tech-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .tech-layer {
+    color: var(--text-mute);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  .tech-choice {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--accent-2);
+    margin-bottom: 8px;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+  }
+  .tech-reason {
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+
+  /* Don't list */
+  .dont-list {
+    background: rgba(248, 113, 113, 0.05);
+    border: 1px solid rgba(248, 113, 113, 0.2);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-top: 20px;
+  }
+  .dont-list h3 {
+    color: var(--red);
+    font-size: 16px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .dont-list ul { list-style: none; }
+  .dont-list li {
+    padding: 8px 0;
+    border-top: 1px solid rgba(248, 113, 113, 0.1);
+    display: flex;
+    gap: 12px;
+    font-size: 14px;
+  }
+  .dont-list li strong { color: var(--red); flex-shrink: 0; }
+
+  /* Footer */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 40px 24px;
+    text-align: center;
+    color: var(--text-mute);
+    font-size: 13px;
+  }
+  footer a { color: var(--accent-2); text-decoration: none; }
+
+  /* Responsive */
+  @media (max-width: 640px) {
+    .hero { padding: 60px 16px 80px; }
+    section { padding: 40px 0; }
+    .roadmap-item { grid-template-columns: 50px 1fr; gap: 12px; padding: 16px; }
+    .roadmap-rank { font-size: 32px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="hero-content">
+    <h1>摩斯密码练习器 · 开源项目调研</h1>
+    <p class="subtitle" id="hero-subtitle">GitHub 上是否已有类似项目？我们调研了 15+ 候选仓库</p>
+    <div class="verdict-badge" id="verdict">✅ 值得做 · 重复造轮子风险低</div>
+    <div class="stats" id="stats"></div>
+  </div>
+</header>
+
+<!-- KEY FINDINGS -->
+<section>
+  <div class="container">
+    <h2><span class="emoji">🔍</span> 4 大关键发现</h2>
+    <p class="section-sub">所有结论都经过 2 轮对抗式验证 · 已确认</p>
+    <div class="findings-grid" id="findings"></div>
+  </div>
+</section>
+
+<!-- PROJECTS TABLE -->
+<section>
+  <div class="container">
+    <h2><span class="emoji">📦</span> 15 个候选项目对比</h2>
+    <p class="section-sub">按功能覆盖度排序 · 维护状态 / 技术栈 / 差异化点</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>项目</th>
+            <th>⭐ Stars</th>
+            <th>技术栈</th>
+            <th>多模式</th>
+            <th>localStorage</th>
+            <th>听码反向</th>
+            <th>中文</th>
+            <th>Cloudflare</th>
+            <th>维护</th>
+            <th>覆盖度</th>
+          </tr>
+        </thead>
+        <tbody id="projects-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURE MATRIX -->
+<section>
+  <div class="container">
+    <h2><span class="emoji">🧬</span> 功能矩阵：你的计划 vs 现有项目</h2>
+    <p class="section-sub">逐项对比 · 一眼看出差异化空间</p>
+    <div class="matrix-wrap">
+      <table class="matrix">
+        <thead>
+          <tr id="matrix-thead"></tr>
+        </thead>
+        <tbody id="matrix-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- DIFFERENTIATION ROADMAP -->
+<section>
+  <div class="container">
+    <h2><span class="emoji">🚀</span> 差异化路线图（按 ROI 排序）</h2>
+    <p class="section-sub">从最高 ROI 到长尾投资 · 5 个落地点</p>
+    <div class="roadmap" id="roadmap"></div>
+  </div>
+</section>
+
+<!-- TECH STACK -->
+<section>
+  <div class="container">
+    <h2><span class="emoji">🛠️</span> 推荐技术栈</h2>
+    <p class="section-sub">基于 14 个项目的"幸存者偏差"分析 · 全部对 Cloudflare Pages 友好</p>
+    <div class="tech-grid" id="tech-grid"></div>
+    <div class="dont-list">
+      <h3>🚫 不建议做</h3>
+      <ul id="dont-list"></ul>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL VERDICT -->
+<section>
+  <div class="container">
+    <h2><span class="emoji">🎯</span> 最终建议</h2>
+    <div style="background: linear-gradient(135deg, rgba(74, 222, 128, 0.1) 0%, rgba(124, 92, 255, 0.1) 100%); border: 1px solid rgba(74, 222, 128, 0.3); border-radius: 16px; padding: 32px;">
+      <p style="font-size: 18px; line-height: 1.8; margin-bottom: 16px;">
+        <strong style="color: var(--green); font-size: 22px;">✅ 这个项目值得做。</strong>
+        重复造轮子风险低，差异化空间充足。
+      </p>
+      <p style="color: var(--text-dim); margin-bottom: 12px;"><strong style="color: var(--text);">最小可行版本 (MVP) 建议范围：</strong></p>
+      <ul style="list-style: none; padding-left: 0;">
+        <li style="padding: 6px 0; color: var(--text-dim);">→ <strong style="color: var(--accent-2);">中文 UI</strong> + <strong style="color: var(--accent-2);">三档难度</strong> + <strong style="color: var(--accent-2);">题目级 localStorage</strong> + <strong style="color: var(--accent-2);">纯静态</strong> + <strong style="color: var(--accent-2);">Cloudflare Pages</strong></li>
+        <li style="padding: 6px 0; color: var(--text-dim);">→ 预计总工时：<strong style="color: var(--yellow);">1-2 周</strong>（一个完整周末 + 几个晚上）即可上线 v1</li>
+      </ul>
+      <p style="color: var(--text-dim); margin-top: 16px;"><strong style="color: var(--text);">下一步：</strong></p>
+      <ul style="list-style: none; padding-left: 0; color: var(--text-dim); font-size: 14px;">
+        <li>1. 用 <code style="color: var(--accent-2);">brainstorming</code> skill 列出 v1 的功能卡片</li>
+        <li>2. 用 <code style="color: var(--accent-2);">init</code> skill 初始化项目骨架（package.json / wrangler.toml / README）</li>
+        <li>3. 用 <code style="color: var(--accent-2);">tdd</code> skill 先把"摩斯码编解码 + 字母表"这套纯函数用 vitest 测过</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>调研日期：<span id="date"></span> · 调研方法：5 角度并行搜索 + 来源抓取 + 2 轮对抗式验证</p>
+  <p>详细数据见 <a href="REPORT.md">REPORT.md</a> · 原始数据见 <a href="raw/">raw/</a> · 结构化数据见 <a href="data.json">data.json</a></p>
+</footer>
+
+<script>
+  // Load data.json
+  fetch('data.json')
+    .then(r => r.json())
+    .then(data => render(data))
+    .catch(err => {
+      console.error('Failed to load data.json', err);
+      document.body.innerHTML = '<div style="padding: 60px; text-align: center;"><h1 style="color: #f87171;">无法加载 data.json</h1><p style="color: #9fa4d4;">请通过 HTTP 服务器访问（不要直接打开文件），或检查 data.json 是否存在。</p><p style="color: #9fa4d4; margin-top: 12px;">' + err + '</p></div>';
+    });
+
+  function badge(value, type) {
+    if (value === true) return '<span class="badge yes">✅</span>';
+    if (value === false) return '<span class="badge no">❌</span>';
+    if (value === 'yes') return '<span class="badge yes">✅</span>';
+    if (value === 'no') return '<span class="badge no">❌</span>';
+    if (value === 'partial') return '<span class="badge partial">⚠️</span>';
+    if (value === 'koch' || value === 'scenario' || value === 'input-type' || value === 'time-word') return '<span class="badge partial">' + value + '</span>';
+    if (value === 'indexeddb') return '<span class="badge partial">IndexedDB</span>';
+    if (value === 'name-only') return '<span class="badge partial">库名</span>';
+    if (value === 'static-only') return '<span class="badge partial">静态可</span>';
+    if (value === 'archived' || value === 'abandoned-2016' || value === 'deleted-404') return '<span class="badge archived">❌ ' + value + '</span>';
+    if (value === 'active' || value === 'stale-2020') return '<span class="badge ' + (value === 'active' ? 'active' : 'stale') + '">' + (value === 'active' ? '✓ 活跃' : value) + '</span>';
+    if (value === 'new-2026-05' || value === 'new-2025-03') return '<span class="badge new">新 · ' + value.replace('new-', '') + '</span>';
+    if (value === 'github-pages' || value === 'vercel' || value === 'aws-s3') return '<span class="badge partial">' + value + '</span>';
+    if (value === 'stale') return '<span class="badge stale">陈旧</span>';
+    if (value === 'very-early') return '<span class="badge new">极早</span>';
+    return '<span class="badge partial">' + value + '</span>';
+  }
+
+  function render(data) {
+    // Hero
+    document.getElementById('hero-subtitle').textContent = data.meta.subtitle;
+    document.getElementById('verdict').textContent = '✅ ' + data.headline.verdict + ' · 重复造轮子风险低';
+    document.getElementById('date').textContent = data.meta.date;
+
+    // Stats
+    const statsHtml = data.headline.highlights.map(s =>
+      `<div class="stat-card">
+        <div class="stat-value ${s.color}">${s.value}</div>
+        <div class="stat-label">${s.label}</div>
+      </div>`
+    ).join('');
+    document.getElementById('stats').innerHTML = statsHtml;
+
+    // Findings
+    const findingsHtml = data.keyFindings.map(f =>
+      `<div class="finding-card">
+        <div class="finding-head">
+          <div class="finding-icon">${f.icon}</div>
+          <span class="finding-num">#${f.id}</span>
+          <span class="finding-status">✓ ${f.statusLabel}</span>
+        </div>
+        <h3>${f.title}</h3>
+        <p class="evidence">${f.evidence}</p>
+        <div class="implication"><strong>启示：</strong>${f.implication}</div>
+      </div>`
+    ).join('');
+    document.getElementById('findings').innerHTML = findingsHtml;
+
+    // Projects table
+    const projectsHtml = data.projects
+      .sort((a, b) => (b.coverage || 0) - (a.coverage || 0))
+      .map(p => `<tr>
+        <td>
+          <a href="${p.url}" target="_blank">${p.name}</a>
+          <div style="color: var(--text-mute); font-size: 12px; margin-top: 2px;">${p.note}</div>
+        </td>
+        <td class="stars">${p.stars != null ? p.stars : '—'}</td>
+        <td>${p.stack}</td>
+        <td>${badge(p.modes)}</td>
+        <td>${badge(p.localStorage)}</td>
+        <td>${badge(p.listenMode)}</td>
+        <td>${badge(p.chinese)}</td>
+        <td>${badge(p.cloudflare)}</td>
+        <td>${badge(p.maintenance)}</td>
+        <td><strong>${p.coverage.toFixed(1)}</strong> / 5</td>
+      </tr>`).join('');
+    document.getElementById('projects-tbody').innerHTML = projectsHtml;
+
+    // Feature matrix
+    const matrixHead = data.featureMatrix.headers.map((h, i) => {
+      const cls = i === 0 ? '' : (i === 1 ? 'you-col' : (i === data.featureMatrix.headers.length - 1 ? '' : ''));
+      return `<th class="${cls}">${h}</th>`;
+    }).join('');
+    document.getElementById('matrix-thead').innerHTML = matrixHead;
+    const matrixBody = data.featureMatrix.rows.map(r => {
+      const cells = [
+        r.feature,
+        r.you, r.mw, r.koch, r.xmor, r.dit, r.mt
+      ];
+      return `<tr>
+        <td>${cells[0]}</td>
+        <td class="you-col">${cells[1]}</td>
+        <td>${cells[2]}</td>
+        <td>${cells[3]}</td>
+        <td>${cells[4]}</td>
+        <td>${cells[5]}</td>
+        <td>${cells[6]}</td>
+        <td class="summary-col">${r.summary}</td>
+      </tr>`;
+    }).join('');
+    document.getElementById('matrix-tbody').innerHTML = matrixBody;
+
+    // Roadmap
+    const roadmapHtml = data.differentiationRoadmap.map(r =>
+      `<div class="roadmap-item ${r.color}">
+        <div class="roadmap-rank ${r.color}">${r.rank}</div>
+        <div class="roadmap-content">
+          <h3>${r.title} <span class="roi">${r.roi}</span></h3>
+          <div class="effort-impact">
+            <span class="tag effort-${r.effort === '低' ? 'low' : (r.effort === '中' ? 'mid' : 'high')}">实施成本: ${r.effort}</span>
+            <span class="tag impact-${r.impact === '高' ? 'high' : 'mid'}">影响: ${r.impact}</span>
+          </div>
+          <p>${r.why}</p>
+          <div class="actions">
+            ${r.actions.map(a => `<span class="action">${a}</span>`).join('')}
+          </div>
+        </div>
+      </div>`
+    ).join('');
+    document.getElementById('roadmap').innerHTML = roadmapHtml;
+
+    // Tech stack
+    const techHtml = data.techStack.recommended.map(t =>
+      `<div class="tech-card">
+        <div class="tech-layer">${t.layer}</div>
+        <div class="tech-choice">${t.choice}</div>
+        <div class="tech-reason">${t.reason}</div>
+      </div>`
+    ).join('');
+    document.getElementById('tech-grid').innerHTML = techHtml;
+
+    // Don't list
+    const dontHtml = data.notRecommended.map(d =>
+      `<li><strong>${d.item}</strong><span>${d.reason}</span></li>`
+    ).join('');
+    document.getElementById('dont-list').innerHTML = dontHtml;
+  }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,353 @@
+{
+  "meta": {
+    "title": "摩斯密码练习器 - 开源项目调研",
+    "subtitle": "GitHub 上是否已有类似项目？我们调研了 15+ 候选仓库",
+    "date": "2026-06-24",
+    "searchAngles": 5,
+    "sourcesFetched": 15,
+    "claimsVerified": "2-vote adversarial",
+    "verdict": "低风险 · 蓝海充足"
+  },
+  "headline": {
+    "verdict": "值得做",
+    "verdictColor": "green",
+    "summary": "你计划的'多模式 + localStorage + Cloudflare 一键部署 + 中文 UI'完整闭环，在 GitHub 上没有任何项目完整覆盖。重复造轮子风险低，差异化空间充足。",
+    "highlights": [
+      { "label": "调研项目", "value": "15+", "color": "blue" },
+      { "label": "中文竞品", "value": "0", "color": "green" },
+      { "label": "完整闭环", "value": "0", "color": "red" },
+      { "label": "重复造轮子风险", "value": "低", "color": "green" }
+    ]
+  },
+  "keyFindings": [
+    {
+      "id": 1,
+      "title": "中文摩斯是真正的'无人区'",
+      "status": "confirmed",
+      "statusLabel": "已验证",
+      "icon": "🈚",
+      "evidence": "GitHub 官方 chinese-morse-code topic 0 个仓库；多个中文关键词搜索唯一稳定出现的是 hustcc/xmorse（326★），但它只是 JS 编解码库，没有练习 UI",
+      "implication": "中文 UI 是你最高 ROI 的差异化亮点"
+    },
+    {
+      "id": 2,
+      "title": "三档长度递进（字母/单词/句子）无人做",
+      "status": "confirmed",
+      "statusLabel": "已验证",
+      "icon": "🧗",
+      "evidence": "sc0tfree/morsewalker 的'模式'是按呼号场景切（POTA/SST/CWT），不是按题目长度切；hmatuschek/kochmorse 是按字符集递进（C++ 桌面，已 archive）；prasad-droid/Morse-Type 只有 time vs word 两种模式",
+      "implication": "你计划的'字母→单词→句子'是清晰的差异化"
+    },
+    {
+      "id": 3,
+      "title": "'多模式 + localStorage + Cloudflare' 完整闭环 = 0 命中",
+      "status": "confirmed",
+      "statusLabel": "已验证",
+      "icon": "🔍",
+      "evidence": "GitHub 直接搜 'morse code practice localStorage' 返回 0 结果；现有项目要么没进度持久化，要么用 IndexedDB（如 tioguerra/morse-code-trainer 用 Dexie），要么部署在 S3/Vercel/GitHub Pages",
+      "implication": "你想要的零后端 + localStorage + Cloudflare Pages 一键部署组合是真正的空白"
+    },
+    {
+      "id": 4,
+      "title": "听码反向（音频/拍键 → 识字）极冷门",
+      "status": "confirmed",
+      "statusLabel": "已验证",
+      "icon": "👂",
+      "evidence": "只有 nerd-bear/Ditdah.uk（0★，5 commit，2025/03）直接做 paddle/straight-key → 实时解码；entitybtw/morse-trainer 算半个（2★，键盘 vs 拍键）",
+      "implication": "如果你做'听码识字'方向，差异化空间充足"
+    }
+  ],
+  "projects": [
+    {
+      "name": "hustcc/xmorse",
+      "url": "https://github.com/hustcc/xmorse",
+      "stars": 326,
+      "stack": "JS 库",
+      "modes": "none",
+      "localStorage": false,
+      "listenMode": false,
+      "chinese": "name-only",
+      "cloudflare": false,
+      "maintenance": "stale-2020",
+      "coverage": 1.5,
+      "note": "唯一稳定出现的中文相关项目，但只是 codec 库"
+    },
+    {
+      "name": "hmatuschek/kochmorse",
+      "url": "https://github.com/hmatuschek/kochmorse",
+      "stars": 93,
+      "stack": "C++ Desktop",
+      "modes": "koch",
+      "localStorage": "partial",
+      "listenMode": false,
+      "chinese": false,
+      "cloudflare": false,
+      "maintenance": "archived",
+      "coverage": 1.5,
+      "note": "Koch method 字符递进，桌面应用，2026/06 已 archive"
+    },
+    {
+      "name": "sc0tfree/morsewalker",
+      "url": "https://github.com/sc0tfree/morsewalker",
+      "stars": 49,
+      "stack": "Vanilla JS + Web Audio",
+      "modes": "scenario",
+      "localStorage": false,
+      "listenMode": false,
+      "chinese": false,
+      "cloudflare": "static-only",
+      "maintenance": "active",
+      "coverage": 2.0,
+      "note": "CW 呼号堆叠训练器（ham radio 比赛），针对高级用户"
+    },
+    {
+      "name": "tioguerra/morse-code-trainer",
+      "url": "https://github.com/tioguerra/morse-code-trainer",
+      "stars": 0,
+      "stack": "SvelteKit + TS + Dexie",
+      "modes": "none",
+      "localStorage": "indexeddb",
+      "listenMode": false,
+      "chinese": false,
+      "cloudflare": "github-pages",
+      "maintenance": "new-2026-05",
+      "coverage": 2.0,
+      "note": "Memrise 风格 SRS，2026/05 新建；用 IndexedDB 不是 localStorage"
+    },
+    {
+      "name": "entitybtw/morse-trainer",
+      "url": "https://github.com/entitybtw/morse-trainer",
+      "stars": 2,
+      "stack": "HTML/CSS/JS",
+      "modes": "input-type",
+      "localStorage": false,
+      "listenMode": "partial",
+      "chinese": false,
+      "cloudflare": "static-only",
+      "maintenance": "active",
+      "coverage": 1.5,
+      "note": "键盘 vs 拍键两种输入模式，RU/EN 双语"
+    },
+    {
+      "name": "nerd-bear/Ditdah.uk",
+      "url": "https://github.com/nerd-bear/Ditdah.uk",
+      "stars": 0,
+      "stack": "Svelte/SvelteKit",
+      "modes": "none",
+      "localStorage": false,
+      "listenMode": true,
+      "chinese": false,
+      "cloudflare": "vercel",
+      "maintenance": "new-2025-03",
+      "coverage": 1.5,
+      "note": "拍键 → 实时识别，部署在 Vercel"
+    },
+    {
+      "name": "prasad-droid/Morse-Type",
+      "url": "https://github.com/prasad-droid/Morse-Type",
+      "stars": 0,
+      "stack": "Vanilla JS + Web Audio",
+      "modes": "time-word",
+      "localStorage": false,
+      "listenMode": false,
+      "chinese": false,
+      "cloudflare": "static-only",
+      "maintenance": "very-early",
+      "coverage": 1.0,
+      "note": "Monkeytype 风格，time vs word 两种模式"
+    },
+    {
+      "name": "Yuffster/morse_trainer",
+      "url": "https://github.com/Yuffster/morse_trainer",
+      "stars": 3,
+      "stack": "Vanilla JS",
+      "modes": "none",
+      "localStorage": false,
+      "listenMode": false,
+      "chinese": false,
+      "cloudflare": "aws-s3",
+      "maintenance": "abandoned-2016",
+      "coverage": 0.5,
+      "note": "NATO 字母音频播放器，2016 后无人维护"
+    },
+    {
+      "name": "knyar/morse-learn",
+      "url": "https://github.com/knyar/morse-learn",
+      "stars": null,
+      "stack": "Static page",
+      "modes": "none",
+      "localStorage": false,
+      "listenMode": false,
+      "chinese": false,
+      "cloudflare": false,
+      "maintenance": "stale",
+      "coverage": 1.0,
+      "note": "教学示例，文本 ↔ 码展示"
+    },
+    {
+      "name": "googlecreativelab/morse-learn",
+      "url": "https://github.com/googlecreativelab/morse-learn",
+      "stars": null,
+      "stack": "Android",
+      "modes": "none",
+      "localStorage": false,
+      "listenMode": false,
+      "chinese": false,
+      "cloudflare": false,
+      "maintenance": "stale",
+      "coverage": 1.0,
+      "note": "Google Creative Lab 演示项目"
+    },
+    {
+      "name": "ozdemirburak/morse-code-translator",
+      "url": "https://github.com/ozdemirburak/morse-code-translator",
+      "stars": null,
+      "stack": "Multi-language",
+      "modes": "none",
+      "localStorage": false,
+      "listenMode": false,
+      "chinese": false,
+      "cloudflare": false,
+      "maintenance": "active",
+      "coverage": 1.0,
+      "note": "多语言字符表翻译器，但无中文摩斯"
+    },
+    {
+      "name": "robalb/morsechat",
+      "url": "https://github.com/robalb/morsechat",
+      "stars": null,
+      "stack": "Node/JS",
+      "modes": "none",
+      "localStorage": false,
+      "listenMode": false,
+      "chinese": false,
+      "cloudflare": false,
+      "maintenance": "active",
+      "coverage": 0.5,
+      "note": "摩斯码聊天应用"
+    },
+    {
+      "name": "John-Lin/morse-code-trainer",
+      "url": "https://github.com/John-Lin/morse-code-trainer",
+      "stars": null,
+      "stack": "Web",
+      "modes": "none",
+      "localStorage": false,
+      "listenMode": false,
+      "chinese": false,
+      "cloudflare": false,
+      "maintenance": "stale",
+      "coverage": 1.0,
+      "note": "通用训练器"
+    },
+    {
+      "name": "morse-crypto/morse-code-translator",
+      "url": "https://github.com/morse-crypto/morse-code-translator",
+      "stars": null,
+      "stack": "Web",
+      "modes": "none",
+      "localStorage": false,
+      "listenMode": false,
+      "chinese": false,
+      "cloudflare": false,
+      "maintenance": "stale",
+      "coverage": 0.5,
+      "note": "单页翻译工具"
+    },
+    {
+      "name": "donblennon/morse-code-practice",
+      "url": "https://github.com/donblennon/morse-code-practice",
+      "stars": null,
+      "stack": "—",
+      "modes": "—",
+      "localStorage": false,
+      "listenMode": false,
+      "chinese": false,
+      "cloudflare": false,
+      "maintenance": "deleted-404",
+      "coverage": 0,
+      "note": "已删除，404"
+    }
+  ],
+  "featureMatrix": {
+    "headers": ["功能维度", "你计划的", "morsewalker", "kochmorse", "xmorse", "Ditdah.uk", "Morse-Type", "综合现有项目"],
+    "rows": [
+      { "feature": "字母 ↔ 摩斯互转", "you": "✅", "mw": "✅", "koch": "✅", "xmor": "✅", "dit": "✅", "mt": "✅", "summary": "🟡 基础功能，多数都有" },
+      { "feature": "多模式（字母/单词/句子）", "you": "✅", "mw": "⚠️ 场景切", "koch": "⚠️ 字符集", "xmor": "❌", "dit": "❌", "mt": "⚠️ time/word", "summary": "🟢 无人做完整" },
+      { "feature": "对错判断", "you": "✅", "mw": "❌", "koch": "❌", "xmor": "❌", "dit": "❌", "mt": "✅", "summary": "🟢 差异化亮点" },
+      { "feature": "题目级 重试/上/下题", "you": "✅", "mw": "❌", "koch": "❌", "xmor": "❌", "dit": "❌", "mt": "❌", "summary": "🟢 差异化亮点" },
+      { "feature": "localStorage 进度", "you": "✅", "mw": "❌", "koch": "⚠️", "xmor": "❌", "dit": "❌", "mt": "❌", "summary": "🟢 差异化亮点" },
+      { "feature": "Cloudflare 部署", "you": "✅", "mw": "⚠️", "koch": "❌", "xmor": "❌", "dit": "❌", "mt": "⚠️", "summary": "🟢 无人明确支持" },
+      { "feature": "中文 UI", "you": "✅", "mw": "❌", "koch": "❌", "xmor": "⚠️ 库名", "dit": "❌", "mt": "❌", "summary": "🟢🟢 蓝海" },
+      { "feature": "听码反向", "you": "可选", "mw": "❌", "koch": "❌", "xmor": "❌", "dit": "✅", "mt": "❌", "summary": "🟢 极冷门" }
+    ]
+  },
+  "differentiationRoadmap": [
+    {
+      "rank": 1,
+      "title": "中文 UI（最高 ROI）",
+      "roi": "🏆🏆",
+      "color": "gold",
+      "effort": "低",
+      "impact": "高",
+      "why": "GitHub 0 个竞品。实现成本：仅需双语字符串表，不增加逻辑复杂度。直接面向你的目标用户。",
+      "actions": ["i18n JSON 文件", "中英切换按钮", "中文错题本标签"]
+    },
+    {
+      "rank": 2,
+      "title": "显式三档难度递进",
+      "roi": "🏆",
+      "color": "green",
+      "effort": "中",
+      "impact": "高",
+      "why": "字母 → 单词 → 句子，按题目长度递进，是你的核心差异化。",
+      "actions": ["letter: 26 字母 + 0-9 数字", "word: TOP 500 常用词", "sentence: 短句 → 长句 分 3-4 级"]
+    },
+    {
+      "rank": 3,
+      "title": "题目级 localStorage 进度",
+      "roi": "🏆",
+      "color": "green",
+      "effort": "中",
+      "impact": "高",
+      "why": "题目级 history（而非 session 级），让用户看到'哪些字符我老错'。",
+      "actions": ["morse.v1.progress", "morse.v1.history 错题本", "morse.v1.current 当前题"]
+    },
+    {
+      "rank": 4,
+      "title": "Cloudflare Pages 零配置部署",
+      "roi": "🥈",
+      "color": "silver",
+      "effort": "低",
+      "impact": "中",
+      "why": "技术选型：纯 HTML + ES Module，不用 React/Vue。把 wrangler.toml 写进仓库。",
+      "actions": ["_headers, _redirects", "wrangler.toml", "README 'Click to Deploy' 按钮"]
+    },
+    {
+      "rank": 5,
+      "title": "听码反向模式（可选）",
+      "roi": "🥉",
+      "color": "bronze",
+      "effort": "高",
+      "impact": "中",
+      "why": "Web Audio + OscillatorNode 生成 CW，用户输入听到的字母。进阶：Koch method 自适应字符集。",
+      "actions": ["Web Audio API", "可调 WPM", "Farnsworth spacing"]
+    }
+  ],
+  "techStack": {
+    "recommended": [
+      { "layer": "框架", "choice": "纯 HTML + ES Module", "reason": "静态站、Cloudflare Pages 友好、首屏快" },
+      { "layer": "样式", "choice": "Tailwind via CDN 或 Pico.css", "reason": "不用构建链" },
+      { "layer": "音频", "choice": "Web Audio API (OscillatorNode)", "reason": "摩码标准做法，零依赖" },
+      { "layer": "存储", "choice": "localStorage (v1)", "reason": "简单、Cloudflare 静态站直接可用" },
+      { "layer": "部署", "choice": "Cloudflare Pages", "reason": "直接连 GitHub，自动构建" },
+      { "layer": "国际化", "choice": "i18n JSON 文件", "reason": "中英双语切换成本极低" },
+      { "layer": "测试", "choice": "vitest + happy-dom", "reason": "纯函数逻辑（编解码、打分）易测" }
+    ]
+  },
+  "notRecommended": [
+    { "item": "复杂 React/Vue 框架", "reason": "拖慢首屏、增加部署门槛" },
+    { "item": "摩斯码编解码库", "reason": "用 xmorse 或自己写 50 行就够" },
+    { "item": "多字符表（土耳其文/阿拉伯文等）扩展", "reason": "除非要做 i18n 国际化" }
+  ]
+}
