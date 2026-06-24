@@ -1,22 +1,30 @@
 /**
- * Main app controller: wires the forward / listen sessions to the DOM.
+ * Main app controller: wires the forward / listen / translator / straight-key
+ * pages to the DOM.
  *
- * Two directions, three sub-modes each:
- *   forward:  see-morse → type-target  (uses modes/forward.js)
- *   listen:   hear-morse → type-target  (uses modes/listen.js)
+ * Four directions (a.k.a. "pages"):
+ *   forward:     see-morse → type-target  (uses modes/forward.js)
+ *   listen:      hear-morse → type-target (uses modes/listen.js)
+ *   translator:  live text ↔ morse bidir  (uses modes/translator.js)
+ *   straightkey: hold Space to tap       (uses modes/straightkey.js)
  *
- * History model:
+ * History model (forward/listen only):
  *   - history[] holds every question we've been on, in order
  *   - historyIndex points to the current position
  *   - 'next' judges+records the current question, generates a new one, appends
  *   - 'prev' just decrements historyIndex and renders the saved state
  *   - 'retry' re-judges the same item with the current input
  *   - Direction/mode change resets history (different topic)
+ *
+ * Translator and straightkey pages don't use history — they have their own
+ * session objects attached in startSession().
  */
 
 import { createForwardSession, generateQuestion, judgeAnswer } from '../modes/forward.js';
 import { createListenSession, generateListenQuestion } from '../modes/listen.js';
-import { playMorse, stop } from '../core/audio.js';
+import { attachTranslator } from '../modes/translator.js';
+import { createStraightKeySession } from '../modes/straightkey.js';
+import { playMorse, stop, playTone, stopTone } from '../core/audio.js';
 import { loadProgress, saveProgress, recordAttempt, getSummary, resetProgress } from '../storage/progress.js';
 import { t } from '../i18n/index.js';
 import { MORSE } from '../core/morse-table.js';
@@ -24,9 +32,12 @@ import { MORSE } from '../core/morse-table.js';
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
+const PRACTICE_DIRECTIONS = ['forward', 'listen'];
+
 const els = {
   directionButtons: () => $$('.direction-btn'),
   modeButtons: () => $$('.mode-btn'),
+  // Practice-page elements (forward + listen)
   promptMorse: () => $('#prompt-morse'),
   promptHint: () => $('#prompt-hint'),
   promptItem: () => $('#prompt-item'),
@@ -39,6 +50,30 @@ const els = {
   nextBtn: () => $('#btn-next'),
   prevBtn: () => $('#btn-prev'),
   feedback: () => $('#feedback'),
+  promptArea: () => $('.prompt-area'),
+  inputArea: () => $('.input-area'),
+  actionBar: () => $('.action-bar'),
+  secondaryBar: () => $('.secondary-bar'),
+  // Translator page
+  translatorText: () => $('#translator-text'),
+  translatorMorse: () => $('#translator-morse'),
+  translatorPlay: () => $('#translator-play'),
+  translatorClear: () => $('#translator-clear'),
+  // Straight-key page
+  skModeButtons: () => $$('.sk-mode-btn'),
+  skSubModeButtons: () => $$('.sk-submode-btn'),
+  skPracticeControls: () => $('#sk-practice-controls'),
+  skTarget: () => $('#sk-target'),
+  skNextTarget: () => $('#sk-next-target'),
+  skRecognized: () => $('#sk-recognized'),
+  skCurrent: () => $('#sk-current'),
+  skPossible: () => $('#sk-possible'),
+  skProgress: () => $('#sk-progress'),
+  skHoldBtn: () => $('#sk-hold-btn'),
+  skBackspace: () => $('#sk-backspace'),
+  skClear: () => $('#sk-clear'),
+  skFeedback: () => $('#sk-feedback'),
+  // Shared
   statTotal: () => $('#stat-total'),
   statAccuracy: () => $('#stat-accuracy'),
   statChars: () => $('#stat-chars'),
@@ -47,6 +82,8 @@ const els = {
   modalClose: () => $('#modal-close'),
   chartGrid: () => $('#chart-grid'),
   resetStatsBtn: () => $('#btn-reset-stats'),
+  translatorPage: () => $('#translator-page'),
+  straightkeyPage: () => $('#straightkey-page'),
 };
 
 let session = null;
@@ -126,6 +163,28 @@ export function initApp() {
   });
 }
 
+/** Show only the section for the current direction; hide the others. */
+function renderPageVisibility() {
+  const isPractice = PRACTICE_DIRECTIONS.includes(direction);
+  const isTranslator = direction === 'translator';
+  const isStraightKey = direction === 'straightkey';
+
+  // Practice sections (prompt + input + actions + feedback)
+  if (els.promptArea()) els.promptArea().classList.toggle('hidden', !isPractice);
+  if (els.inputArea()) els.inputArea().classList.toggle('hidden', !isPractice);
+  if (els.actionBar()) els.actionBar().classList.toggle('hidden', !isPractice);
+  if (els.feedback()) els.feedback().classList.toggle('hidden', !isPractice || true); // feedback has its own hidden state; just leave it
+  // Translator + straight-key pages
+  if (els.translatorPage()) els.translatorPage().classList.toggle('hidden', !isTranslator);
+  if (els.straightkeyPage()) els.straightkeyPage().classList.toggle('hidden', !isStraightKey);
+
+  // Mode bar only makes sense for practice pages
+  const modeBar = document.querySelector('.mode-bar');
+  if (modeBar) modeBar.classList.toggle('hidden', !isPractice);
+
+  // Reset stats panel is always visible
+}
+
 /** Start a fresh session. Resets history. Used on boot and on direction/mode change. */
 function startSession() {
   // Defensive: if any module-level state was lost (shouldn't happen, but
@@ -134,7 +193,7 @@ function startSession() {
     console.warn('[startSession] subMode was invalid, resetting to letter:', subMode);
     subMode = 'letter';
   }
-  if (!['forward', 'listen'].includes(direction)) {
+  if (!['forward', 'listen', 'translator', 'straightkey'].includes(direction)) {
     console.warn('[startSession] direction was invalid, resetting to forward:', direction);
     direction = 'forward';
   }
@@ -150,11 +209,19 @@ function startSession() {
   els.modeButtons().forEach((b) => {
     b.classList.toggle('active', b.dataset.mode === subMode);
   });
-  // We don't need a session object — history is the source of truth. The
-  // session was previously used for judging, but its `current` field got
-  // stale after the first nextQuestion() call (it was only initialized
-  // once in startSession). Now we use judgeAnswer() directly with the
-  // history's item, which is always up-to-date.
+  renderPageVisibility();
+
+  // Branch by page type
+  if (direction === 'translator') {
+    startTranslatorPage();
+    return;
+  }
+  if (direction === 'straightkey') {
+    startStraightKeyPage();
+    return;
+  }
+
+  // Practice page (forward / listen)
   session = null;
   history = [makeState(generateFresh())];
   historyIndex = 0;
@@ -332,6 +399,8 @@ function bindInputField() {
 function bindKeyboardShortcuts() {
   document.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT') return;
+    // Straight-key page owns Space (and other modifier interactions).
+    if (direction === 'straightkey') return;
     if (e.key === ' ') {
       e.preventDefault();
       els.playBtn().click();
@@ -348,6 +417,207 @@ function bindKeyboardShortcuts() {
     } else if (e.key === '?') {
       els.referenceBtn()?.click();
     }
+  });
+}
+
+// ─── Translator page ───
+
+let translatorHandle = null;
+
+function startTranslatorPage() {
+  // Lazy-init: only attach listeners once per app session
+  if (!translatorHandle) {
+    const text = els.translatorText();
+    const morse = els.translatorMorse();
+    const play = els.translatorPlay();
+    const clear = els.translatorClear();
+    if (text && morse) {
+      translatorHandle = attachTranslator({ textArea: text, morseArea: morse, playBtn: play });
+    }
+    if (clear && text && morse) {
+      clear.addEventListener('click', () => {
+        text.value = '';
+        morse.value = '';
+      });
+    }
+  }
+  // Stop any stray audio
+  stop();
+  // Reset practice-page elements that may have leftover state
+  history = [];
+  historyIndex = -1;
+  // Clear feedback so practice-page error messages don't leak
+  try { clearFeedback(); } catch {}
+}
+
+// ─── Straight-key page ───
+
+let straightkeySession = null;
+
+function startStraightKeyPage() {
+  stop();
+  // Reset practice-page elements
+  history = [];
+  historyIndex = -1;
+  try { clearFeedback(); } catch {}
+
+  if (!straightkeySession) {
+    straightkeySession = createStraightKeySession({
+      wpm: 15,
+      onChange: renderStraightKeyState,
+      onResult: renderStraightKeyResult,
+    });
+  } else {
+    // Reset on every (re-)entry
+    straightkeySession.reset();
+  }
+
+  // Bind buttons (idempotent)
+  bindStraightKeyControls();
+  bindStraightKeyHoldButton();
+}
+
+function renderStraightKeyState(state) {
+  // Recognized: built from finalized letters and (optional) current char marker
+  const recEl = els.skRecognized();
+  if (recEl) {
+    const finals = state.letters.join('');
+    if (finals) {
+      // Render finalized letters as inline blocks; show current as bracketed
+      const finalizedHtml = finals
+        .split('')
+        .map((c) => c === ' '
+          ? '<span class="sk-letter">␣</span>'
+          : `<span class="sk-letter">${escapeHtml(c)}</span>`)
+        .join('');
+      const currentHtml = state.currentChar
+        ? `<span class="sk-letter pending">${escapeHtml(state.currentChar)}</span>`
+        : '';
+      recEl.innerHTML = finalizedHtml + currentHtml;
+    } else if (state.currentChar) {
+      recEl.innerHTML = `<span class="sk-letter pending">${escapeHtml(state.currentChar)}</span>`;
+    } else {
+      recEl.innerHTML = '<span class="placeholder">—</span>';
+    }
+  }
+  // Current morse code (visible symbols)
+  const curEl = els.skCurrent();
+  if (curEl) {
+    curEl.textContent = state.currentCode || '';
+    curEl.style.opacity = state.currentCode ? '1' : '0.3';
+  }
+  // Possible chars
+  const posEl = els.skPossible();
+  if (posEl) {
+    posEl.textContent = state.possible.length > 0
+      ? state.possible.slice(0, 12).join(' ') + (state.possible.length > 12 ? ' …' : '')
+      : '';
+    posEl.style.opacity = state.possible.length > 0 ? '1' : '0.3';
+  }
+  // Practice-mode target display
+  const tgtEl = els.skTarget();
+  if (tgtEl) {
+    tgtEl.textContent = state.target || '';
+  }
+  // Show/hide practice controls
+  const practiceControls = els.skPracticeControls();
+  if (practiceControls) {
+    practiceControls.classList.toggle('hidden', state.mode !== 'practice');
+  }
+  // Mode button active state
+  els.skModeButtons().forEach((b) => {
+    b.classList.toggle('active', b.dataset.skMode === state.mode);
+  });
+  // SubMode button active state
+  els.skSubModeButtons().forEach((b) => {
+    b.classList.toggle('active', b.dataset.skSubmode === state.subMode);
+  });
+}
+
+function renderStraightKeyResult(result) {
+  const fb = els.skFeedback();
+  if (!fb) return;
+  fb.classList.remove('hidden', 'correct', 'wrong', 'partial');
+  if (result.isCorrect) {
+    fb.classList.add('correct');
+    fb.textContent = t('straightkey.feedback.correct') + ` (${result.item})`;
+  } else {
+    fb.classList.add('wrong');
+    fb.textContent = t('straightkey.feedback.wrong') +
+      ` — 期望: ${result.item} · 你: ${result.input}`;
+  }
+}
+
+let _skControlListenersBound = false;
+function bindStraightKeyControls() {
+  if (_skControlListenersBound) return;
+  _skControlListenersBound = true;
+
+  els.skModeButtons().forEach((btn) => {
+    btn.addEventListener('click', () => {
+      straightkeySession?.setMode(btn.dataset.skMode);
+    });
+  });
+  els.skSubModeButtons().forEach((btn) => {
+    btn.addEventListener('click', () => {
+      straightkeySession?.setSubMode(btn.dataset.skSubmode);
+    });
+  });
+  els.skNextTarget()?.addEventListener('click', () => {
+    straightkeySession?.nextTarget();
+    // Clear any previous feedback
+    const fb = els.skFeedback();
+    if (fb) { fb.classList.add('hidden'); fb.textContent = ''; }
+  });
+  els.skBackspace()?.addEventListener('click', () => {
+    straightkeySession?.backspace();
+  });
+  els.skClear()?.addEventListener('click', () => {
+    straightkeySession?.reset();
+    const fb = els.skFeedback();
+    if (fb) { fb.classList.add('hidden'); fb.textContent = ''; }
+  });
+}
+
+let _skHoldListenerBound = false;
+function bindStraightKeyHoldButton() {
+  if (_skHoldListenerBound) return;
+  _skHoldListenerBound = true;
+  const btn = els.skHoldBtn();
+  if (!btn) return;
+  // Use pointer events so this works for mouse + touch + pen
+  const onDown = (e) => {
+    e.preventDefault();
+    straightkeySession?.onKeyDown();
+    btn.classList.add('active');
+  };
+  const onUp = (e) => {
+    e.preventDefault();
+    straightkeySession?.onKeyUp();
+    btn.classList.remove('active');
+  };
+  btn.addEventListener('pointerdown', onDown);
+  btn.addEventListener('pointerup', onUp);
+  btn.addEventListener('pointerleave', onUp);
+  btn.addEventListener('pointercancel', onUp);
+
+  // Also bind global Space when on the straight-key page. We do this
+  // add/remove cycle inside bindKeyboardShortcuts; here we just add
+  // additional document-level listeners scoped to the active page.
+  document.addEventListener('keydown', (e) => {
+    if (direction !== 'straightkey') return;
+    if (e.repeat) return;
+    if (e.code !== 'Space' && e.key !== ' ') return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    e.preventDefault();
+    straightkeySession?.onKeyDown();
+  });
+  document.addEventListener('keyup', (e) => {
+    if (direction !== 'straightkey') return;
+    if (e.code !== 'Space' && e.key !== ' ') return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    e.preventDefault();
+    straightkeySession?.onKeyUp();
   });
 }
 
