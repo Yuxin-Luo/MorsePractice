@@ -7,6 +7,7 @@
 
 import { createForwardSession, generateQuestion, judgeAnswer } from '../modes/forward.js';
 import { playMorse, stop } from '../core/audio.js';
+import { loadProgress, saveProgress, recordAttempt, getSummary } from '../storage/progress.js';
 
 // DOM refs
 const $ = (sel) => document.querySelector(sel);
@@ -32,6 +33,7 @@ let historyIndex = -1;
 
 /** Initialize the app. */
 export function initApp() {
+  renderStats();
   bindModeButtons();
   bindActionButtons();
   bindInputField();
@@ -81,17 +83,16 @@ function bindActionButtons() {
   els.retryBtn().addEventListener('click', () => {
     if (!session) return;
     session.setInput(els.inputField().value);
-    session.submit();
+    const result = session.submit();
+    if (result) recordAndPersist(session.getState().item, session.getState().input, result.isCorrect);
   });
 
   els.nextBtn().addEventListener('click', () => {
     if (!session) return;
     session.setInput(els.inputField().value);
-    session.submit();
+    const result = session.submit();
+    if (result) recordAndPersist(session.getState().item, session.getState().input, result.isCorrect);
     // Generate a new question.
-    const oldItem = session.getState().item;
-    // We use a side-channel: re-create the session with same mode
-    // but keep the history.
     const mode = session.mode;
     session = createForwardSession({
       mode,
@@ -129,7 +130,8 @@ function bindInputField() {
     if (e.key === 'Enter') {
       if (session) {
         session.setInput(input.value);
-        session.submit();
+        const result = session.submit();
+        if (result) recordAndPersist(session.getState().item, session.getState().input, result.isCorrect);
       }
     }
   });
@@ -205,6 +207,26 @@ function pushHistory(state) {
   }
   history.push(state);
   historyIndex = history.length - 1;
+}
+
+function recordAndPersist(item, input, isCorrect) {
+  const state = loadProgress();
+  const mode = session.mode;
+  const updated = recordAttempt(state, mode, item, input, isCorrect);
+  saveProgress(updated);
+  renderStats();
+}
+
+function renderStats() {
+  const state = loadProgress();
+  const sum = getSummary(state);
+  // Update DOM if stats elements exist
+  const totalEl = document.querySelector('#stat-total');
+  const accEl = document.querySelector('#stat-accuracy');
+  const charsEl = document.querySelector('#stat-chars');
+  if (totalEl) totalEl.textContent = sum.totalAttempts;
+  if (accEl) accEl.textContent = sum.totalAttempts > 0 ? `${Math.round(sum.accuracy * 100)}%` : '—';
+  if (charsEl) charsEl.textContent = sum.uniqueChars;
 }
 
 function escapeHtml(s) {
