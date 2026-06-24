@@ -17,7 +17,7 @@
 import { createForwardSession, generateQuestion, judgeAnswer } from '../modes/forward.js';
 import { createListenSession, generateListenQuestion } from '../modes/listen.js';
 import { playMorse, stop } from '../core/audio.js';
-import { loadProgress, saveProgress, recordAttempt, getSummary } from '../storage/progress.js';
+import { loadProgress, saveProgress, recordAttempt, getSummary, resetProgress } from '../storage/progress.js';
 import { t } from '../i18n/index.js';
 import { MORSE } from '../core/morse-table.js';
 
@@ -42,6 +42,7 @@ const els = {
   referenceModal: () => $('#reference-modal'),
   modalClose: () => $('#modal-close'),
   chartGrid: () => $('#chart-grid'),
+  resetStatsBtn: () => $('#btn-reset-stats'),
 };
 
 let session = null;
@@ -60,6 +61,7 @@ export function initApp() {
   bindInputField();
   bindKeyboardShortcuts();
   bindReferenceModal();
+  bindResetStatsButton();
   try {
     startSession();
   } catch (err) {
@@ -123,7 +125,11 @@ function generateFresh() {
 }
 
 function makeState(q) {
-  return { mode: subMode, item: q.item, morse: q.morse, input: '', result: null };
+  // `consumed` = true once this question has been counted into the stats.
+  // - Enter/Retry: sets consumed=true after judging+recording
+  // - Multiple Enters: only the first counts (others are no-ops)
+  // - Click 重试: clears consumed so the user gets a fresh "one count"
+  return { mode: subMode, item: q.item, morse: q.morse, input: '', result: null, consumed: false };
 }
 
 /** Render whatever history[historyIndex] is. */
@@ -137,23 +143,76 @@ function renderCurrent() {
 }
 
 function nextQuestion() {
-  // Judge the current question (if there's input) using history's item,
-  // NOT the session's internal current (which can be stale).
+  // Judge the current question if it has input AND hasn't been counted yet.
+  // Multiple Enters before clicking 重试 won't double-count.
   const current = history[historyIndex];
-  const input = els.inputField().value;
-  if (current && input) {
-    const result = judgeAnswer(current.item, input);
-    const updated = { ...current, input, result };
-    history[historyIndex] = updated;
-    recordAndPersist(updated.item, updated.input, result.isCorrect);
-  } else if (current && input !== current.input) {
-    history[historyIndex] = { ...current, input };
+  if (current && !current.consumed) {
+    submitCurrent({ silent: true });
   }
   // Generate a new question
   history.push(makeState(generateFresh()));
   historyIndex = history.length - 1;
   renderCurrent();
   if (direction === 'listen') autoPlay();
+}
+
+/**
+ * Judge the current question and (if not yet consumed) record to localStorage.
+ *
+ * @param {object} [opts]
+ * @param {boolean} [opts.silent=false] - if true, don't re-render the feedback panel
+ *   (used by nextQuestion to keep flow moving)
+ * @returns {object|null} the updated state, or null if input was empty
+ */
+function submitCurrent({ silent = false } = {}) {
+  const state = history[historyIndex];
+  if (!state) return null;
+  // Already counted: don't record again. Just re-render the existing result.
+  if (state.consumed) {
+    if (!silent) renderResult(state);
+    return state;
+  }
+  const input = els.inputField().value;
+  if (!input.trim()) {
+    if (!silent) showEmptyHint();
+    return null;
+  }
+  const result = judgeAnswer(state.item, input);
+  const updated = { ...state, input, result, consumed: true };
+  history[historyIndex] = updated;
+  recordAndPersist(updated.item, updated.input, result.isCorrect);
+  if (!silent) renderResult(updated);
+  return updated;
+}
+
+/**
+ * Re-judge the current question: clear the consumed flag, then submit again.
+ * If input is empty, just clear the consumed flag (allow fresh try).
+ */
+function retryCurrent() {
+  const state = history[historyIndex];
+  if (!state) return;
+  const input = els.inputField().value;
+  // If no input, just clear consumed and feedback — let user try again
+  if (!input.trim()) {
+    history[historyIndex] = { ...state, consumed: false, result: null, input: '' };
+    clearFeedback();
+    return;
+  }
+  // Re-judge with the same item; consumed is reset so it counts again
+  const result = judgeAnswer(state.item, input);
+  const updated = { ...state, input, result, consumed: true };
+  history[historyIndex] = updated;
+  renderResult(updated);
+  recordAndPersist(updated.item, updated.input, result.isCorrect);
+}
+
+/** Show a hint when the user tries to submit empty input. */
+function showEmptyHint() {
+  const fb = els.feedback();
+  fb.classList.remove('hidden', 'correct', 'wrong', 'partial');
+  fb.classList.add('empty');
+  fb.textContent = t('feedback.empty') || '请先输入答案';
 }
 
 function bindDirectionButtons() {
@@ -192,14 +251,7 @@ function bindActionButtons() {
   });
 
   els.retryBtn().addEventListener('click', () => {
-    const state = history[historyIndex];
-    if (!state) return;
-    const input = els.inputField().value;
-    const result = judgeAnswer(state.item, input);
-    const updated = { ...state, input, result };
-    history[historyIndex] = updated;
-    renderResult(updated);
-    recordAndPersist(updated.item, updated.input, result.isCorrect);
+    retryCurrent();
     updateNavButtons();
   });
 
@@ -221,13 +273,7 @@ function bindInputField() {
   });
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
-      const state = history[historyIndex];
-      if (!state) return;
-      const result = judgeAnswer(state.item, input.value);
-      const updated = { ...state, input: input.value, result };
-      history[historyIndex] = updated;
-      renderResult(updated);
-      recordAndPersist(updated.item, updated.input, result.isCorrect);
+      submitCurrent();
       updateNavButtons();
     }
   });
@@ -361,6 +407,23 @@ function renderStats() {
   if (els.statTotal()) els.statTotal().textContent = sum.totalAttempts;
   if (els.statAccuracy()) els.statAccuracy().textContent = sum.totalAttempts > 0 ? `${Math.round(sum.accuracy * 100)}%` : '—';
   if (els.statChars()) els.statChars().textContent = sum.uniqueChars;
+}
+
+// ─── Reset stats button ───
+
+/** Bind the "clear stats" button in the stats panel.
+ *  Clears localStorage progress (总答题数/正确率/字符统计/history),
+ *  but leaves the current practice session (in-memory history) intact. */
+function bindResetStatsButton() {
+  if (!els.resetStatsBtn()) return;
+  els.resetStatsBtn().addEventListener('click', () => {
+    const ok = window.confirm(
+      t('stats.confirmReset') || '确定要清空所有累计统计吗？此操作不可撤销。'
+    );
+    if (!ok) return;
+    resetProgress();
+    renderStats();
+  });
 }
 
 // ─── Reference modal ───
