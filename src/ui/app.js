@@ -99,7 +99,7 @@ function startSession() {
   els.modeButtons().forEach((b) => {
     b.classList.toggle('active', b.dataset.mode === subMode);
   });
-  session = createFactory()(subMode);
+  session = createFactory()({ mode: subMode });
   history = [makeState(generateFresh())];
   historyIndex = 0;
   renderCurrent();
