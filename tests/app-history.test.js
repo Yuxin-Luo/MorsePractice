@@ -164,3 +164,169 @@ describe('app state machine: feedback clearing on direction switch', () => {
     expect(app.getCurrentResult().expected).toBe(thirdItem);
   });
 });
+
+/* ────────────────────────────────────────────────────────────────────
+ * Tests for the new "consumed" flag and empty-input guard.
+ *
+ * These mirror the relevant logic from src/ui/app.js (submitCurrent,
+ * retryCurrent, makeState). The harness intentionally diverges from
+ * createAppHarness above to model the new state shape.
+ * ──────────────────────────────────────────────────────────────────── */
+
+function createSubmitHarness(opts = {}) {
+  let direction = opts.direction ?? 'forward';
+  let subMode = opts.subMode ?? 'letter';
+  let history = [];
+  let historyIndex = -1;
+  const stats = { count: 0 };
+
+  function makeState(q) {
+    return { mode: subMode, item: q.item, morse: q.morse, input: '', result: null, consumed: false };
+  }
+  function generateFresh() {
+    return direction === 'forward' ? generateQuestion(subMode) : generateListenQuestion(subMode);
+  }
+  function startSession() {
+    history = [makeState(generateFresh())];
+    historyIndex = 0;
+  }
+  function submitCurrent({ silent = false } = {}) {
+    const state = history[historyIndex];
+    if (!state) return null;
+    if (state.consumed) return state; // already counted → no-op
+    const input = state.input ?? '';
+    if (!input.trim()) return null; // empty → no record
+    const result = direction === 'forward'
+      ? judgeAnswer(state.item, input)
+      : judgeListenAnswer(state.item, input);
+    const updated = { ...state, input, result, consumed: true };
+    history[historyIndex] = updated;
+    stats.count += 1;
+    return updated;
+  }
+  function retryCurrent() {
+    const state = history[historyIndex];
+    if (!state) return;
+    const input = state.input ?? '';
+    if (!input.trim()) {
+      history[historyIndex] = { ...state, consumed: false, result: null, input: '' };
+      return;
+    }
+    const result = direction === 'forward'
+      ? judgeAnswer(state.item, input)
+      : judgeListenAnswer(state.item, input);
+    const updated = { ...state, input, result, consumed: true };
+    history[historyIndex] = updated;
+    stats.count += 1;
+    return updated;
+  }
+  function setInput(value) {
+    const state = history[historyIndex];
+    if (state) history[historyIndex] = { ...state, input: value };
+  }
+  function nextQuestion() {
+    submitCurrent({ silent: true });
+    history.push(makeState(generateFresh()));
+    historyIndex = history.length - 1;
+  }
+
+  startSession();
+  return { setInput, submitCurrent, retryCurrent, nextQuestion, getState: () => history[historyIndex], getStats: () => ({ ...stats }), getHistory: () => [...history] };
+}
+
+describe('app state machine: consumed flag (single-count per question)', () => {
+  it('first Enter on a question counts once', () => {
+    const app = createSubmitHarness();
+    const item = app.getState().item;
+    app.setInput(item);
+    app.submitCurrent();
+    expect(app.getStats().count).toBe(1);
+    expect(app.getState().consumed).toBe(true);
+  });
+
+  it('multiple Enters on the same question count only ONCE', () => {
+    const app = createSubmitHarness();
+    const item = app.getState().item;
+    app.setInput(item);
+    app.submitCurrent();
+    app.submitCurrent();
+    app.submitCurrent();
+    app.submitCurrent();
+    expect(app.getStats().count).toBe(1);
+  });
+
+  it('clicking 重试 (retry) re-arms the consumed flag, allowing a new count', () => {
+    const app = createSubmitHarness();
+    const item = app.getState().item;
+    app.setInput(item);
+    app.submitCurrent();
+    expect(app.getStats().count).toBe(1);
+    // User clicks retry with a corrected answer
+    app.setInput(item); // still correct, but we explicitly retry
+    app.retryCurrent();
+    expect(app.getStats().count).toBe(2);
+  });
+
+  it('nextQuestion does not double-count the just-consumed question', () => {
+    const app = createSubmitHarness();
+    const item = app.getState().item;
+    app.setInput(item);
+    app.submitCurrent();
+    expect(app.getStats().count).toBe(1);
+    app.nextQuestion(); // should NOT re-record
+    expect(app.getStats().count).toBe(1);
+  });
+
+  it('nextQuestion on an unconsumed question DOES count it', () => {
+    const app = createSubmitHarness();
+    const item = app.getState().item;
+    app.setInput(item);
+    // user typed but never pressed Enter / clicked retry
+    app.nextQuestion();
+    expect(app.getStats().count).toBe(1);
+  });
+
+  it('works for listen direction too', () => {
+    const app = createSubmitHarness({ direction: 'listen' });
+    const item = app.getState().item;
+    app.setInput(item);
+    app.submitCurrent();
+    expect(app.getStats().count).toBe(1);
+    // Multiple Enters still count only once
+    app.submitCurrent();
+    app.submitCurrent();
+    expect(app.getStats().count).toBe(1);
+  });
+});
+
+describe('app state machine: empty-input guard', () => {
+  it('empty submit does NOT record a wrong answer', () => {
+    const app = createSubmitHarness();
+    app.setInput('');
+    app.submitCurrent();
+    expect(app.getStats().count).toBe(0);
+    expect(app.getState().consumed).toBe(false);
+  });
+
+  it('whitespace-only submit does NOT record', () => {
+    const app = createSubmitHarness();
+    app.setInput('   ');
+    app.submitCurrent();
+    expect(app.getStats().count).toBe(0);
+    expect(app.getState().consumed).toBe(false);
+  });
+
+  it('clicking 重试 with empty input does NOT record', () => {
+    const app = createSubmitHarness();
+    // First do a real submit
+    const item = app.getState().item;
+    app.setInput('WRONG_ANSWER');
+    app.submitCurrent();
+    expect(app.getStats().count).toBe(1);
+    // Now click retry with empty input
+    app.setInput('');
+    app.retryCurrent();
+    expect(app.getStats().count).toBe(1); // unchanged
+    expect(app.getState().consumed).toBe(false); // re-armed
+  });
+});

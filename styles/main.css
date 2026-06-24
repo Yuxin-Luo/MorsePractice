@@ -334,6 +334,12 @@ body {
   border: 1px solid var(--yellow-border);
   color: #92400e;
 }
+.feedback.empty {
+  background: var(--surface-2);
+  border: 1px dashed var(--border-strong);
+  color: var(--text-dim);
+  font-weight: 500;
+}
 .feedback .expected, .feedback .actual {
   margin-top: 8px;
   font-size: 14px;
@@ -451,6 +457,33 @@ body {
   text-transform: uppercase;
   letter-spacing: 1px;
   margin-bottom: 12px;
+}
+.result-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.result-panel-header h3 {
+  margin-bottom: 0;
+}
+.reset-stats-btn {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-mute);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+  letter-spacing: 0.3px;
+}
+.reset-stats-btn:hover {
+  background: var(--red-bg);
+  border-color: var(--red-border);
+  color: #991b1b;
 }
 
 /* Stats grid */

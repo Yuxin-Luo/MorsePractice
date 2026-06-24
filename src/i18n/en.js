@@ -32,6 +32,7 @@ export default {
     correct: '✅ Correct!',
     wrong: '❌ Wrong',
     partial: '⚠️ Partial',
+    empty: '⚠️ Please type an answer first',
     expected: 'Expected: ',
     youTyped: 'You typed: ',
   },
@@ -40,6 +41,9 @@ export default {
     totalAttempts: 'Attempts',
     accuracy: 'Accuracy',
     uniqueChars: 'Chars seen',
+    resetStats: 'Clear stats',
+    resetStatsTitle: 'Clear cumulative stats (current practice unaffected)',
+    confirmReset: 'Clear all cumulative stats? This cannot be undone.',
   },
   tips: {
     title: 'Shortcuts',

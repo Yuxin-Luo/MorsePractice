@@ -380,6 +380,7 @@ function renderResult(state) {
 function clearFeedback() {
   const fb = els.feedback();
   fb.classList.add('hidden');
+  fb.classList.remove('empty');
   fb.textContent = '';
 }
 

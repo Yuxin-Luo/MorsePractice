@@ -32,6 +32,7 @@ export default {
     correct: '✅ 正确！',
     wrong: '❌ 错误',
     partial: '⚠️ 部分正确',
+    empty: '⚠️ 请先输入答案',
     expected: '期望：',
     youTyped: '你输入：',
   },
@@ -40,6 +41,9 @@ export default {
     totalAttempts: '总答题数',
     accuracy: '正确率',
     uniqueChars: '练过字符',
+    resetStats: '清空统计',
+    resetStatsTitle: '清空累计统计（不影响当前练习）',
+    confirmReset: '确定要清空所有累计统计吗？此操作不可撤销。',
   },
   tips: {
     title: '操作提示',

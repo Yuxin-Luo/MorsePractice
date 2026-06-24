@@ -95,6 +95,7 @@ export function t(key, vars) {
  * - [data-i18n="key"] → set textContent
  * - [data-i18n-placeholder="key"] → set placeholder
  * - [data-i18n-aria="key"] → set aria-label
+ * - [data-i18n-title="key"] → set title attribute
  * Also dispatches 'i18n:applied' event for app.js to do its own updates.
  */
 export function applyTranslations() {
@@ -108,6 +109,9 @@ export function applyTranslations() {
   });
   document.querySelectorAll('[data-i18n-aria]').forEach((el) => {
     el.setAttribute('aria-label', t(el.getAttribute('data-i18n-aria')));
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+    el.setAttribute('title', t(el.getAttribute('data-i18n-title')));
   });
   // Update language switcher label
   const sw = document.querySelector('[data-i18n-lang-switch]');

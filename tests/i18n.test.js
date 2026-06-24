@@ -88,6 +88,16 @@ describe('applyTranslations()', () => {
     expect(document.querySelector('input').getAttribute('placeholder')).toBe('在此输入你的答案...');
   });
 
+  it('updates [data-i18n-title] elements', () => {
+    document.body.innerHTML = '<button data-i18n-title="stats.resetStatsTitle">btn</button>';
+    setLocale('zh');
+    applyTranslations();
+    expect(document.querySelector('button').getAttribute('title')).toBe('清空累计统计（不影响当前练习）');
+    setLocale('en');
+    applyTranslations();
+    expect(document.querySelector('button').getAttribute('title')).toBe('Clear cumulative stats (current practice unaffected)');
+  });
+
   it('dispatches i18n:applied event', () => {
     let called = false;
     document.addEventListener('i18n:applied', () => (called = true));
