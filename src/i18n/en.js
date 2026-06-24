@@ -3,6 +3,10 @@ export default {
     title: 'Morse Code Practice',
     tagline: 'Decode morse · build muscle memory',
   },
+  direction: {
+    forward: 'See morse → type',
+    listen: '👂 Hear morse → type',
+  },
   mode: {
     letter: 'Letter / Digit',
     word: 'Word',
@@ -12,6 +16,7 @@ export default {
     label: 'Type the text corresponding to this morse code:',
     target: 'Target: ',
     hint: '(hint — you can also click 🔊 to listen)',
+    listenHint: '🔊 Press play, then type what you hear',
   },
   input: {
     placeholder: 'Type your answer...',
