@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>摩斯密码练习器</title>
+  <link rel="stylesheet" href="./styles/main.css">
+</head>
+<body>
+  <main class="app">
+    <header class="app-header">
+      <h1>📡 摩斯密码练习器</h1>
+      <p class="tagline">看码打字 · 循序渐进</p>
+    </header>
+
+    <nav class="mode-bar">
+      <button class="mode-btn active" data-mode="letter">字母 / 数字</button>
+      <button class="mode-btn" data-mode="word">单词</button>
+      <button class="mode-btn" data-mode="sentence">句子</button>
+    </nav>
+
+    <section class="prompt-area">
+      <div class="prompt-label">请根据下面的摩斯码输入对应的文字：</div>
+      <div class="prompt-morse" id="prompt-morse">.... . .-.. .-.. ---</div>
+      <div class="prompt-hint">
+        <span class="hint-text">目标：</span>
+        <span class="prompt-item" id="prompt-item"></span>
+        <span class="hint-text hint-dim">（提示，仅供参考，可点击 🔊 听）</span>
+      </div>
+    </section>
+
+    <section class="input-area">
+      <input
+        type="text"
+        id="answer-input"
+        class="answer-input"
+        placeholder="在此输入你的答案..."
+        autocomplete="off"
+        autocapitalize="off"
+        spellcheck="false"
+      >
+    </section>
+
+    <section id="feedback" class="feedback hidden"></section>
+
+    <section class="action-bar">
+      <button id="btn-prev" class="action-btn secondary" title="上一题 (P)">← 上一题</button>
+      <button id="btn-play" class="action-btn primary" title="播放 (空格)">🔊 播放</button>
+      <button id="btn-retry" class="action-btn secondary" title="重试 (R)">↻ 重试</button>
+      <button id="btn-next" class="action-btn primary" title="下一题 (N)">下一题 →</button>
+    </section>
+
+    <section class="result-panel" id="result-panel">
+      <h3>操作提示</h3>
+      <ul class="shortcuts">
+        <li><kbd>空格</kbd> 播放摩斯码声音</li>
+        <li><kbd>R</kbd> 重试当前题</li>
+        <li><kbd>N</kbd> 下一题</li>
+        <li><kbd>P</kbd> 上一题</li>
+        <li><kbd>Enter</kbd> 提交答案</li>
+      </ul>
+    </section>
+  </main>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
