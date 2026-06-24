@@ -73,7 +73,8 @@ export function createStraightKeySession(opts = {}) {
   let mode = 'free';
   let subMode = 'letter';
   let target = null;
-  let resultEmitted = false;
+  let submitted = false;    // explicit submit gate; mirrors forward mode's consumed
+  let lastResult = null;    // { isCorrect, item, input, perfect } from most recent submit
 
   function classifyByDuration(durMs) {
     return durMs < t.ditDahThreshold ? '.' : '-';
@@ -92,18 +93,69 @@ export function createStraightKeySession(opts = {}) {
   }
 
   function maybeEmitPracticeResult() {
-    if (mode !== 'practice' || !target) return;
-    if (resultEmitted) return;
-    const flat = letters.join('').replace(/\s+/g, '').trim();
+    // Kept as a no-op for now (judgment moved to submit()).
+    // Removed the length-triggered auto-emit because users can now control
+    // when to submit via the Submit button — auto-judging on length would
+    // short-circuit the new explicit-submit flow.
+  }
+
+  /**
+   * Explicit submission: judge the user's current `letters` against `target`
+   * and return the result. Sets the `submitted` flag so subsequent submits
+   * are no-ops (until retry). Only meaningful in practice mode.
+   *
+   * @returns {{ isCorrect: boolean, item: string, input: string, perfect: boolean } | { empty: true } | null}
+   */
+  function submit() {
+    if (mode !== 'practice' || !target) return null;
+    if (submitted) return lastResult;
+    // Combine finalized letters + the current pending letter (if user is
+    // mid-tap with no letter-gap yet). The renderer already shows the
+    // pending element as a <pending> marker in the recognized area, so the
+    // user sees it as part of their input — submit should agree.
+    const currentCode = elements.join('');
+    const currentChar = currentCode ? (FROM_MORSE[currentCode] || '') : '';
+    const flat = (letters.join('') + currentChar).replace(/\s+/g, '').trim();
     const targetFlat = target.replace(/\s+/g, '').trim();
-    if (flat.length < targetFlat.length) return;
+    if (!flat) return { empty: true };
     const inputSlice = flat.slice(0, targetFlat.length);
-    resultEmitted = true;
-    if (inputSlice === targetFlat) {
-      onResult?.({ isCorrect: true, item: target, input: flat, perfect: true });
-    } else {
-      onResult?.({ isCorrect: false, item: target, input: flat, perfect: false });
-    }
+    const isCorrect = inputSlice === targetFlat;
+    lastResult = { isCorrect, item: target, input: flat, perfect: isCorrect };
+    submitted = true;
+    emit();
+    return lastResult;
+  }
+
+  /**
+   * Retry the current question: clear user's tapped letters and reset the
+   * submitted flag. Target is preserved. The next submit will record again.
+   */
+  function retry() {
+    elements = [];
+    letters = [];
+    lastRelease = 0;
+    submitted = false;
+    lastResult = null;
+    if (currentOsc) { stopTone(currentOsc); currentOsc = null; }
+    emit();
+  }
+
+  /**
+   * Restore the session to a previously-saved snapshot (used by app.js for
+   * prev-question navigation). Emits once so the UI re-renders.
+   *
+   * @param {{ target: string, letters: string[], elements: string[], result: object|null, consumed: boolean }} snapshot
+   */
+  function setState(snapshot) {
+    if (!snapshot) return;
+    target = snapshot.target;
+    letters = [...(snapshot.letters || [])];
+    elements = [...(snapshot.elements || [])];
+    lastResult = snapshot.result || null;
+    submitted = !!snapshot.consumed;
+    lastRelease = 0;
+    if (currentOsc) { stopTone(currentOsc); currentOsc = null; }
+    emit();
   }
 
   function emit() {
@@ -120,6 +172,8 @@ export function createStraightKeySession(opts = {}) {
       threshold: t.ditDahThreshold,
       letters: [...letters],
       elements: [...elements],
+      submitted,
+      lastResult,
     });
   }
 
@@ -157,7 +211,8 @@ export function createStraightKeySession(opts = {}) {
       stopTone(currentOsc);
       currentOsc = null;
     }
-    resultEmitted = false;
+    submitted = false;
+    lastResult = null;
     if (mode === 'practice') {
       target = target ?? generateTarget(subMode);
     } else {
@@ -168,7 +223,8 @@ export function createStraightKeySession(opts = {}) {
 
   function nextTarget() {
     if (mode !== 'practice') return null;
-    resultEmitted = false;
+    submitted = false;
+    lastResult = null;
     target = generateTarget(subMode);
     elements = [];
     letters = [];
@@ -181,13 +237,11 @@ export function createStraightKeySession(opts = {}) {
   function backspace() {
     if (elements.length > 0) {
       elements.pop();
-      resultEmitted = false;
       emit();
       return;
     }
     if (letters.length > 0) {
       letters.pop();
-      resultEmitted = false;
       emit();
       return;
     }
@@ -236,14 +290,28 @@ export function createStraightKeySession(opts = {}) {
     nextTarget,
     setMode,
     setSubMode,
-    getState: () => ({
-      mode,
-      subMode,
-      target,
-      letters: [...letters],
-      elements: [...elements],
-      threshold: t.ditDahThreshold,
-      timing: { ...t },
-    }),
+    submit,
+    retry,
+    setState,
+    getState: () => {
+      // Same shape as the onChange payload so renderers can consume either.
+      const display = buildDisplay(letters, elements);
+      return {
+        mode,
+        subMode,
+        target,
+        letters: [...letters],
+        elements: [...elements],
+        threshold: t.ditDahThreshold,
+        timing: { ...t },
+        recognized: display.finalized,
+        currentCode: display.currentCode,
+        currentChar: display.currentChar,
+        possible: display.currentCode ? getPossibleChars(display.currentCode) : [],
+        isHolding: !!currentOsc,
+        submitted,
+        lastResult,
+      };
+    },
   };
 }

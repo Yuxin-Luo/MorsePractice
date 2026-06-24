@@ -69,44 +69,6 @@
       <button id="btn-next" class="action-btn primary" data-i18n="action.next">下一题 →</button>
     </section>
 
-    <div class="secondary-bar">
-      <button id="btn-reference" class="secondary-btn" data-i18n="action.reference">📖 摩斯码表</button>
-    </div>
-
-    <section class="result-panel" id="result-panel">
-      <div class="result-panel-header">
-        <h3 data-i18n="stats.title">📊 累计统计</h3>
-        <button id="btn-reset-stats" class="reset-stats-btn" data-i18n="stats.resetStats" data-i18n-title="stats.resetStatsTitle" title="清空累计统计">🗑️ 清空</button>
-      </div>
-      <div class="stats-grid">
-        <div class="stat-item">
-          <div class="stat-num" id="stat-total">0</div>
-          <div class="stat-lbl" data-i18n="stats.totalAttempts">总答题数</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-num" id="stat-accuracy">—</div>
-          <div class="stat-lbl" data-i18n="stats.accuracy">正确率</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-num" id="stat-chars">0</div>
-          <div class="stat-lbl" data-i18n="stats.uniqueChars">练过字符</div>
-        </div>
-      </div>
-    </section>
-
-    <section class="result-panel" id="result-panel-tips">
-      <h3 data-i18n="tips.title">操作提示</h3>
-      <ul class="shortcuts">
-        <li><kbd>Space</kbd> <span data-i18n="tips.play">播放摩斯码声音</span></li>
-        <li><kbd>R</kbd> <span data-i18n="tips.retry">重试当前题</span></li>
-        <li><kbd>N</kbd> <span data-i18n="tips.next">下一题</span></li>
-        <li><kbd>P</kbd> <span data-i18n="tips.prev">上一题</span></li>
-        <li><kbd>Enter</kbd> <span data-i18n="tips.submit">提交答案</span></li>
-        <li><kbd>1</kbd>/<kbd>2</kbd> <span data-i18n="tips.direction">切换看码/听码</span></li>
-        <li><kbd>?</kbd> <span data-i18n="tips.reference">打开码表</span></li>
-      </ul>
-    </section>
-
     <!-- ─────────── Translator page ─────────── -->
     <section id="translator-page" class="page hidden">
       <h2 data-i18n="translator.title">🔄 摩斯翻译器</h2>
@@ -158,9 +120,11 @@
         <div class="sk-target-row">
           <span class="sk-target-label" data-i18n="straightkey.target">目标</span>:
           <span id="sk-target" class="sk-target"></span>
+          <span class="sk-answer-label" data-i18n="straightkey.answer">答案</span>:
+          <span id="sk-target-morse" class="sk-target-morse hidden-by-toggle"></span>
           <button id="sk-toggle-target" class="toggle-hint-btn sk-toggle-target" type="button">
             <span class="toggle-icon" aria-hidden="true">🙈</span>
-            <span class="toggle-label" data-i18n="straightkey.hideTarget">隐藏目标</span>
+            <span class="toggle-label" data-i18n="straightkey.hideAnswer">隐藏答案</span>
           </button>
         </div>
         <nav class="mode-bar sk-submode">
@@ -168,7 +132,12 @@
           <button class="sk-submode-btn" data-sk-submode="word" data-i18n="mode.word">单词</button>
           <button class="sk-submode-btn" data-sk-submode="sentence" data-i18n="mode.sentence">句子</button>
         </nav>
-        <button id="sk-next-target" class="secondary-btn" data-i18n="straightkey.nextTarget">下一题 →</button>
+        <!-- Target-practice nav (prev / retry / next), 4-col equal-width like forward mode -->
+        <section class="action-bar sk-nav">
+          <button id="sk-prev-target" class="action-btn secondary" data-i18n="action.prev">← 上一题</button>
+          <button id="sk-retry-target" class="action-btn secondary" data-i18n="action.retry">↻ 重试</button>
+          <button id="sk-next-target" class="action-btn primary" data-i18n="action.next">下一题 →</button>
+        </section>
       </div>
       <div class="sk-display">
         <div class="sk-row">
@@ -190,12 +159,59 @@
           <span data-i18n="straightkey.thresholdLabel">dit 阈值</span>
         </div>
       </div>
-      <div class="translator-actions">
+      <!-- Free-mode actions: hold button + backspace + clear -->
+      <div class="sk-actions sk-actions-free">
         <button id="sk-hold-btn" class="action-btn primary sk-hold-btn" data-i18n="straightkey.holdBtn">按住拍码</button>
         <button id="sk-backspace" class="secondary-btn" data-i18n="straightkey.backspace">⌫ 后退</button>
         <button id="sk-clear" class="secondary-btn" data-i18n="straightkey.clear">🧹 清除</button>
       </div>
+      <!-- Target-practice actions: hold + submit (50/50) + backspace + clear, 4-col grid -->
+      <div class="sk-actions sk-actions-practice hidden">
+        <button id="sk-hold-btn" class="action-btn primary sk-hold-btn" data-i18n="straightkey.holdBtn">按住拍码</button>
+        <button id="sk-submit" class="action-btn primary sk-submit-btn" data-i18n="straightkey.submit">提交答案</button>
+        <button id="sk-backspace" class="secondary-btn" data-i18n="straightkey.backspace">⌫ 后退</button>
+        <button id="sk-clear" class="secondary-btn" data-i18n="straightkey.clear">🧹 清除</button>
+      </div>
       <div id="sk-feedback" class="sk-feedback hidden"></div>
+    </section>
+
+    <!-- ─────────── Moved-down panels: secondary-bar (reference), stats, tips ─────────── -->
+    <div class="secondary-bar">
+      <button id="btn-reference" class="secondary-btn" data-i18n="action.reference">📖 摩斯码表</button>
+    </div>
+
+    <section class="result-panel" id="result-panel">
+      <div class="result-panel-header">
+        <h3 data-i18n="stats.title">📊 累计统计</h3>
+        <button id="btn-reset-stats" class="reset-stats-btn" data-i18n="stats.resetStats" data-i18n-title="stats.resetStatsTitle" title="清空累计统计">🗑️ 清空</button>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-item">
+          <div class="stat-num" id="stat-total">0</div>
+          <div class="stat-lbl" data-i18n="stats.totalAttempts">总答题数</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-num" id="stat-accuracy">—</div>
+          <div class="stat-lbl" data-i18n="stats.accuracy">正确率</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-num" id="stat-chars">0</div>
+          <div class="stat-lbl" data-i18n="stats.uniqueChars">练过字符</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="result-panel" id="result-panel-tips">
+      <h3 data-i18n="tips.title">操作提示</h3>
+      <ul class="shortcuts">
+        <li><kbd>Space</kbd> <span data-i18n="tips.play">播放摩斯码声音</span></li>
+        <li><kbd>R</kbd> <span data-i18n="tips.retry">重试当前题</span></li>
+        <li><kbd>N</kbd> <span data-i18n="tips.next">下一题</span></li>
+        <li><kbd>P</kbd> <span data-i18n="tips.prev">上一题</span></li>
+        <li><kbd>Enter</kbd> <span data-i18n="tips.submit">提交答案</span></li>
+        <li><kbd>1</kbd>/<kbd>2</kbd> <span data-i18n="tips.direction">切换看码/听码</span></li>
+        <li><kbd>?</kbd> <span data-i18n="tips.reference">打开码表</span></li>
+      </ul>
     </section>
   </main>
 

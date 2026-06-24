@@ -236,26 +236,19 @@ describe('straight-key session — practice mode result', () => {
   }
 
   it('emits correct result when fully matching a single-letter target', () => {
-    let result = null;
-    const s = createStraightKeySession({
-      onResult: (r) => { result = r; },
-    });
+    const s = createStraightKeySession();
     s.setMode('practice');
     s.setSubMode('letter');
-    // Replace target via test injection: just regenerate until we get a known char
-    // For reliability, set target directly via a side channel — we don't have one,
-    // so type whatever target was generated.
     const target = s.getState().target;
     typeTarget(s, target);
+    // Judgment is now explicit via submit()
+    const result = s.submit();
     expect(result).not.toBeNull();
     expect(result.isCorrect).toBe(true);
   });
 
   it('emits wrong result when user types wrong chars', () => {
-    let result = null;
-    const s = createStraightKeySession({
-      onResult: (r) => { result = r; },
-    });
+    const s = createStraightKeySession();
     s.setMode('practice');
     s.setSubMode('letter');
     const target = s.getState().target;
@@ -268,6 +261,7 @@ describe('straight-key session — practice mode result', () => {
         mockNow += t.letterGap + 20;
         s.flushFinalize();
       }
+      const result = s.submit();
       expect(result).not.toBeNull();
       expect(result.isCorrect).toBe(false);
     } else {
@@ -277,14 +271,12 @@ describe('straight-key session — practice mode result', () => {
   });
 
   it('emits correct result when typing a multi-letter word', () => {
-    let result = null;
-    const s = createStraightKeySession({
-      onResult: (r) => { result = r; },
-    });
+    const s = createStraightKeySession();
     s.setMode('practice');
     s.setSubMode('word');
     const target = s.getState().target;
     typeTarget(s, target);
+    const result = s.submit();
     expect(result).not.toBeNull();
     expect(result.isCorrect).toBe(true);
   });
@@ -307,5 +299,101 @@ describe('straight-key session — nextTarget', () => {
   it('nextTarget is a no-op in free mode (returns null)', () => {
     const s = createStraightKeySession();
     expect(s.nextTarget()).toBe(null);
+  });
+});
+
+describe('straight-key session — explicit submit / retry / setState', () => {
+  // Local copies of the tap helpers (the ones in the previous describe block
+  // are scoped to that block).
+  function tap(s, holdMs) {
+    s.onKeyDown();
+    mockNow += holdMs;
+    s.onKeyUp();
+    mockNow += 10;
+  }
+  const codes = { A: '.-', B: '-...', C: '-.-.', D: '-..', E: '.', F: '..-.',
+    G: '--.', H: '....', I: '..', J: '.---', K: '-.-', L: '.-..', M: '--',
+    N: '-.', O: '---', P: '.--.', Q: '--.-', R: '.-.', S: '...', T: '-',
+    U: '..-', V: '...-', W: '.--', X: '-..-', Y: '-.--', Z: '--..',
+    '0': '-----', '1': '.----', '2': '..---', '3': '...--', '4': '....-',
+    '5': '.....', '6': '-....', '7': '--...', '8': '---..', '9': '----.' };
+  function typeTarget(s, target) {
+    const t = s.getState().timing;
+    for (const ch of target) {
+      if (ch === ' ') {
+        mockNow += t.wordGap + 20;
+        s.flushFinalize();
+        continue;
+      }
+      const code = codes[ch];
+      if (!code) throw new Error(`Test bug: no code for "${ch}"`);
+      for (const sym of code) {
+        s.onKeyDown();
+        mockNow += sym === '.' ? t.ditDahThreshold / 2 : t.ditDahThreshold + 30;
+        s.onKeyUp();
+        mockNow += 10;
+      }
+      mockNow += t.letterGap + 20;
+      s.flushFinalize();
+    }
+  }
+
+  it('submit returns { empty: true } when no letters tapped', () => {
+    const s = createStraightKeySession();
+    s.setMode('practice');
+    expect(s.submit()).toEqual({ empty: true });
+  });
+
+  it('submit includes the pending element when user has tapped but not yet finalized', () => {
+    const s = createStraightKeySession();
+    s.setMode('practice');
+    // Tap a single dit without waiting for letter-gap → goes into elements, not letters.
+    s.onKeyDown();
+    s.onKeyUp();
+    expect(s.getState().letters).toEqual([]);  // not yet finalized
+    expect(s.getState().elements).toEqual(['.']);  // pending
+    const result = s.submit();
+    expect(result).not.toEqual({ empty: true });
+    expect(result.input).toBe('E');  // dit = E
+  });
+
+  it('submit locks subsequent submits until retry', () => {
+    const s = createStraightKeySession();
+    s.setMode('practice');
+    const target = s.getState().target;
+    typeTarget(s, target);
+    const first = s.submit();
+    expect(first.isCorrect).toBe(true);
+    const second = s.submit();
+    expect(second).toBe(first);  // same object returned
+  });
+
+  it('retry clears letters and re-enables submit', () => {
+    const s = createStraightKeySession();
+    s.setMode('practice');
+    const target = s.getState().target;
+    typeTarget(s, target);
+    s.submit();
+    s.retry();
+    expect(s.getState().letters).toEqual([]);
+    expect(s.getState().elements).toEqual([]);
+    expect(s.getState().submitted).toBe(false);
+  });
+
+  it('setState restores target, letters, and submitted flag', () => {
+    const s = createStraightKeySession();
+    s.setMode('practice');
+    const snapshot = {
+      target: 'HI',
+      letters: ['H'],
+      elements: ['.', '-', '.', '.'],
+      result: { isCorrect: false, item: 'HI', input: 'H', perfect: false },
+      consumed: true,
+    };
+    s.setState(snapshot);
+    expect(s.getState().target).toBe('HI');
+    expect(s.getState().letters).toEqual(['H']);
+    expect(s.getState().elements).toEqual(['.', '-', '.', '.']);
+    expect(s.getState().submitted).toBe(true);
   });
 });

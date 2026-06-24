@@ -23,11 +23,11 @@
 import { createForwardSession, generateQuestion, judgeAnswer } from '../modes/forward.js';
 import { createListenSession, generateListenQuestion } from '../modes/listen.js';
 import { attachTranslator } from '../modes/translator.js';
+import { MORSE } from '../core/morse-table.js';
 import { createStraightKeySession } from '../modes/straightkey.js';
 import { playMorse, stop, playTone, stopTone } from '../core/audio.js';
 import { loadProgress, saveProgress, recordAttempt, getSummary, resetProgress } from '../storage/progress.js';
 import { t } from '../i18n/index.js';
-import { MORSE } from '../core/morse-table.js';
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
@@ -64,7 +64,24 @@ const els = {
   skSubModeButtons: () => $$('.sk-submode-btn'),
   skPracticeControls: () => $('#sk-practice-controls'),
   skTarget: () => $('#sk-target'),
+  skTargetMorse: () => $('#sk-target-morse'),
+  skPrevTarget: () => $('#sk-prev-target'),
+  skRetryTarget: () => $('#sk-retry-target'),
   skNextTarget: () => $('#sk-next-target'),
+  skSubmit: () => $('#sk-submit'),
+  skFeedback: () => $('#sk-feedback'),
+  skActions: () => $('.sk-actions'),
+  skActionsFree: () => $('.sk-actions-free'),
+  skActionsPractice: () => $('.sk-actions-practice'),
+  skHoldBtn: () => $('#sk-hold-btn'),
+  // sk-hold-btn / sk-backspace / sk-clear each appear twice in the DOM
+  // (once per mode-set). Use querySelectorAll to bind every instance so the
+  // visible button always responds regardless of which mode-set is showing.
+  skHoldBtns: () => $$('#sk-hold-btn'),
+  skBackspaceBtns: () => $$('#sk-backspace'),
+  skClearBtns: () => $$('#sk-clear'),
+  skBackspace: () => $('#sk-backspace'),
+  skClear: () => $('#sk-clear'),
   skToggleTarget: () => $('#sk-toggle-target'),
   skToggleTargetLabel: () => $('#sk-toggle-target .toggle-label'),
   skToggleTargetIcon: () => $('#sk-toggle-target .toggle-icon'),
@@ -72,10 +89,6 @@ const els = {
   skCurrent: () => $('#sk-current'),
   skPossible: () => $('#sk-possible'),
   skProgress: () => $('#sk-progress'),
-  skHoldBtn: () => $('#sk-hold-btn'),
-  skBackspace: () => $('#sk-backspace'),
-  skClear: () => $('#sk-clear'),
-  skFeedback: () => $('#sk-feedback'),
   // Shared
   statTotal: () => $('#stat-total'),
   statAccuracy: () => $('#stat-accuracy'),
@@ -504,6 +517,11 @@ function startTranslatorPage() {
 
 let straightkeySession = null;
 
+// History model for target practice (parallel to forward's history/historyIndex).
+// Each entry mirrors a "question snapshot" with the user's progress + result.
+let skHistory = [];
+let skHistoryIndex = -1;
+
 function startStraightKeyPage() {
   stop();
   // Reset practice-page elements
@@ -515,7 +533,6 @@ function startStraightKeyPage() {
     straightkeySession = createStraightKeySession({
       wpm: 15,
       onChange: renderStraightKeyState,
-      onResult: renderStraightKeyResult,
     });
   } else {
     // Reset on every (re-)entry
@@ -525,6 +542,140 @@ function startStraightKeyPage() {
   // Bind buttons (idempotent)
   bindStraightKeyControls();
   bindStraightKeyHoldButton();
+
+  // Reset history and seed with a first target (in practice mode).
+  skHistory = [];
+  skHistoryIndex = -1;
+  skUpdateButtonVisibility();
+  if (straightkeySession.getState().mode === 'practice') {
+    skNextQuestion();
+  } else {
+    skRenderCurrent();
+  }
+}
+
+// ─── Target-practice navigation (mirrors forward's submit/retry/next/prev) ───
+
+function skMakeState(target) {
+  return {
+    target,
+    subMode,
+    letters: [],
+    elements: [],
+    result: null,
+    consumed: false,
+  };
+}
+
+function skRenderCurrent() {
+  if (!straightkeySession) return;
+  renderStraightKeyState(straightkeySession.getState());
+  skUpdateNavButtons();
+}
+
+function skUpdateButtonVisibility() {
+  // Toggle which action set is shown based on mode (free vs practice).
+  const mode = straightkeySession?.getState().mode ?? 'free';
+  const freeEl = els.skActionsFree();
+  const practiceEl = els.skActionsPractice();
+  if (freeEl) freeEl.classList.toggle('hidden', mode !== 'free');
+  if (practiceEl) practiceEl.classList.toggle('hidden', mode !== 'practice');
+}
+
+function skUpdateNavButtons() {
+  const prev = els.skPrevTarget();
+  const retry = els.skRetryTarget();
+  const next = els.skNextTarget();
+  const submit = els.skSubmit();
+  const state = straightkeySession?.getState();
+  const submitted = !!state?.submitted;
+  const inPractice = state?.mode === 'practice';
+
+  if (prev) {
+    prev.disabled = !inPractice || skHistoryIndex <= 0;
+    prev.style.opacity = (!inPractice || skHistoryIndex <= 0) ? '0.4' : '1';
+  }
+  if (retry) {
+    retry.disabled = !inPractice || skHistoryIndex < 0;
+    retry.style.opacity = (!inPractice || skHistoryIndex < 0) ? '0.4' : '1';
+  }
+  if (next) {
+    next.disabled = !inPractice || skHistoryIndex < 0;
+    next.style.opacity = (!inPractice || skHistoryIndex < 0) ? '0.4' : '1';
+  }
+  if (submit) {
+    submit.disabled = !inPractice || submitted;
+    submit.style.opacity = (!inPractice || submitted) ? '0.6' : '1';
+    submit.textContent = submitted
+      ? (t('straightkey.submitted') || '已提交')
+      : (t('straightkey.submit') || '提交答案');
+  }
+}
+
+function skSubmitCurrent() {
+  const cur = skHistory[skHistoryIndex];
+  if (!cur) return;
+  if (cur.consumed) {
+    // Already counted: just re-render (mirrors forward's submitCurrent).
+    skRenderCurrent();
+    return;
+  }
+  const result = straightkeySession.submit();
+  if (!result) return;
+  if (result.empty) {
+    skShowEmptyHint();
+    return;
+  }
+  cur.result = result;
+  cur.consumed = true;
+  const s = straightkeySession.getState();
+  cur.letters = [...s.letters];
+  cur.elements = [...s.elements];
+  skHistory[skHistoryIndex] = cur;
+  recordAndPersist(result.item, result.input, result.isCorrect);
+  renderStraightKeyResult(result);
+  skRenderCurrent();
+}
+
+function skShowEmptyHint() {
+  const fb = els.skFeedback();
+  if (!fb) return;
+  fb.classList.remove('hidden', 'correct', 'wrong', 'partial');
+  fb.classList.add('empty');
+  fb.textContent = t('straightkey.submitEmpty') || '请先拍码';
+}
+
+function skRetryCurrent() {
+  const cur = skHistory[skHistoryIndex];
+  if (!cur) return;
+  straightkeySession.retry();
+  cur.consumed = false;
+  cur.result = null;
+  cur.letters = [];
+  cur.elements = [];
+  skHistory[skHistoryIndex] = cur;
+  try { clearFeedback(); } catch {}
+  skRenderCurrent();
+}
+
+function skNextQuestion() {
+  // Generate a new target and push a fresh history entry.
+  // Note: if the current question wasn't submitted, we silently discard it
+  // (it never counted toward stats — same as forward mode's "skip" semantics).
+  const target = straightkeySession.nextTarget();
+  skHistory.push(skMakeState(target));
+  skHistoryIndex = skHistory.length - 1;
+  try { clearFeedback(); } catch {}
+  skRenderCurrent();
+}
+
+function skPrevQuestion() {
+  if (skHistoryIndex <= 0) return;
+  skHistoryIndex--;
+  const snap = skHistory[skHistoryIndex];
+  straightkeySession.setState(snap);
+  renderStraightKeyResult(snap.result);
+  skRenderCurrent();
 }
 
 function renderStraightKeyState(state) {
@@ -564,16 +715,29 @@ function renderStraightKeyState(state) {
       : '';
     posEl.style.opacity = state.possible.length > 0 ? '1' : '0.3';
   }
-  // Practice-mode target display (respects the show-target toggle)
+  // Practice-mode target display (always shown) + answer (morse) display (toggleable)
   const tgtEl = els.skTarget();
   if (tgtEl) {
     if (state.mode === 'practice') {
-      const show = getShowTarget();
-      tgtEl.textContent = show ? (state.target || '') : (t('prompt.maskItem') || '? ? ?');
-      tgtEl.classList.toggle('hidden-by-toggle', !show);
+      tgtEl.textContent = state.target || '';
     } else {
       tgtEl.textContent = '';
-      tgtEl.classList.remove('hidden-by-toggle');
+    }
+  }
+  const ansEl = els.skTargetMorse();
+  if (ansEl) {
+    if (state.mode === 'practice' && state.target) {
+      // Render the morse code for each character in the target.
+      // Space → / (word separator), unknown chars → ?
+      const morse = state.target
+        .split('')
+        .map((c) => c === ' ' ? '/' : (MORSE[c] || '?'))
+        .join(' ');
+      ansEl.textContent = morse;
+      ansEl.classList.toggle('hidden-by-toggle', !getShowTarget());
+    } else {
+      ansEl.textContent = '';
+      ansEl.classList.add('hidden-by-toggle');
     }
   }
   // Show/hide practice controls
@@ -591,14 +755,21 @@ function renderStraightKeyState(state) {
   });
   // Update the toggle button label
   renderStraightKeyTargetToggle();
+  // Keep submit/retry/prev/next buttons in sync with session state
+  skUpdateNavButtons();
+  // Keep free/practice action sets in sync with mode
+  skUpdateButtonVisibility();
 }
 
-/** Update the show/hide-target button label/icon based on current showTarget state. */
+/** Update the show/hide-answer button label/icon based on current showTarget state. */
 function renderStraightKeyTargetToggle() {
   const btn = els.skToggleTarget();
   if (!btn) return;
   const show = getShowTarget();
-  const label = show ? t('straightkey.hideTarget') : t('straightkey.showTarget');
+  // Label reflects the ACTION the button will perform, not the current state.
+  // "隐藏答案" means "click to hide" (current state: shown)
+  // "显示答案" means "click to reveal" (current state: hidden)
+  const label = show ? t('straightkey.hideAnswer') : t('straightkey.showAnswer');
   const labelEl = els.skToggleTargetLabel();
   if (labelEl) labelEl.textContent = label;
   const iconEl = els.skToggleTargetIcon();
@@ -629,29 +800,57 @@ function bindStraightKeyControls() {
   els.skModeButtons().forEach((btn) => {
     btn.addEventListener('click', () => {
       straightkeySession?.setMode(btn.dataset.skMode);
+      // Mode switch: clear history and re-seed if entering practice.
+      skHistory = [];
+      skHistoryIndex = -1;
+      const m = straightkeySession?.getState().mode;
+      if (m === 'practice') skNextQuestion();
+      else skRenderCurrent();
     });
   });
   els.skSubModeButtons().forEach((btn) => {
     btn.addEventListener('click', () => {
       straightkeySession?.setSubMode(btn.dataset.skSubmode);
+      // SubMode switch: clear history and re-seed.
+      skHistory = [];
+      skHistoryIndex = -1;
+      if (straightkeySession?.getState().mode === 'practice') skNextQuestion();
+      else skRenderCurrent();
     });
   });
-  els.skNextTarget()?.addEventListener('click', () => {
-    straightkeySession?.nextTarget();
-    // Clear any previous feedback
-    const fb = els.skFeedback();
-    if (fb) { fb.classList.add('hidden'); fb.textContent = ''; }
-  });
+  // Target-practice nav trio (mirrors forward mode's btn-prev/btn-retry/btn-next)
+  els.skPrevTarget()?.addEventListener('click', skPrevQuestion);
+  els.skRetryTarget()?.addEventListener('click', skRetryCurrent);
+  els.skNextTarget()?.addEventListener('click', skNextQuestion);
+  // Submit button: explicit judgment gate
+  els.skSubmit()?.addEventListener('click', skSubmitCurrent);
   els.skToggleTarget()?.addEventListener('click', () => {
     setShowTarget(!getShowTarget());
   });
-  els.skBackspace()?.addEventListener('click', () => {
-    straightkeySession?.backspace();
+  // Bind BOTH instances of each duplicated button (free + practice mode-sets).
+  // `els.skBackspace()` returns only the first match, so without this the
+  // practice-mode copy would be unclickable.
+  els.skBackspaceBtns().forEach((btn) => {
+    btn.addEventListener('click', () => {
+      straightkeySession?.backspace();
+    });
   });
-  els.skClear()?.addEventListener('click', () => {
-    straightkeySession?.reset();
-    const fb = els.skFeedback();
-    if (fb) { fb.classList.add('hidden'); fb.textContent = ''; }
+  els.skClearBtns().forEach((btn) => {
+    btn.addEventListener('click', () => {
+      // Clear resets the session. Also reset history's current entry so a
+      // re-tap doesn't restore stale letters on next target.
+      straightkeySession?.reset();
+      const cur = skHistory[skHistoryIndex];
+      if (cur) {
+        cur.letters = [];
+        cur.elements = [];
+        cur.consumed = false;
+        cur.result = null;
+      }
+      const fb = els.skFeedback();
+      if (fb) { fb.classList.add('hidden'); fb.textContent = ''; }
+      skRenderCurrent();
+    });
   });
 }
 
@@ -659,23 +858,27 @@ let _skHoldListenerBound = false;
 function bindStraightKeyHoldButton() {
   if (_skHoldListenerBound) return;
   _skHoldListenerBound = true;
-  const btn = els.skHoldBtn();
-  if (!btn) return;
-  // Use pointer events so this works for mouse + touch + pen
-  const onDown = (e) => {
-    e.preventDefault();
-    straightkeySession?.onKeyDown();
-    btn.classList.add('active');
-  };
-  const onUp = (e) => {
-    e.preventDefault();
-    straightkeySession?.onKeyUp();
-    btn.classList.remove('active');
-  };
-  btn.addEventListener('pointerdown', onDown);
-  btn.addEventListener('pointerup', onUp);
-  btn.addEventListener('pointerleave', onUp);
-  btn.addEventListener('pointercancel', onUp);
+  // Both the free and practice mode-sets have a #sk-hold-btn. Bind every
+  // copy so the visible one always responds to pointer events.
+  const btns = els.skHoldBtns();
+  if (btns.length === 0) return;
+  btns.forEach((btn) => {
+    // Use pointer events so this works for mouse + touch + pen
+    const onDown = (e) => {
+      e.preventDefault();
+      straightkeySession?.onKeyDown();
+      btn.classList.add('active');
+    };
+    const onUp = (e) => {
+      e.preventDefault();
+      straightkeySession?.onKeyUp();
+      btn.classList.remove('active');
+    };
+    btn.addEventListener('pointerdown', onDown);
+    btn.addEventListener('pointerup', onUp);
+    btn.addEventListener('pointerleave', onUp);
+    btn.addEventListener('pointercancel', onUp);
+  });
 
   // Also bind global Space when on the straight-key page. We do this
   // add/remove cycle inside bindKeyboardShortcuts; here we just add

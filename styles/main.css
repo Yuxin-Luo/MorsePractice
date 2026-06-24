@@ -882,9 +882,26 @@ kbd {
   padding: 4px 0;
   flex: 1;
 }
-.sk-target.hidden-by-toggle {
-  color: var(--text-mute);
-  /* Show mask placeholder ("? ? ?") instead of real target */
+.sk-answer-label {
+  font-size: 12px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-weight: 700;
+  margin-left: 8px;
+}
+.sk-target-morse {
+  font-family: 'SF Mono', Monaco, monospace;
+  font-size: 18px;
+  color: var(--accent-2);
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  padding: 4px 0;
+  flex: 1;
+  min-width: 0;
+}
+.sk-target-morse.hidden-by-toggle {
+  display: none;
 }
 .sk-target-row {
   display: flex;
@@ -983,8 +1000,24 @@ kbd {
   letter-spacing: 0.5px;
 }
 
+.sk-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.sk-actions-free {
+  grid-template-columns: 2fr 1fr 1fr;  /* hold dominant in free mode */
+}
+.sk-actions.hidden { display: none; }
+
+.sk-nav {
+  grid-template-columns: 1fr 1fr 1fr;  /* 3 buttons, equal width */
+  margin-top: 8px;
+  margin-bottom: 16px;
+}
+
 .sk-hold-btn {
-  flex: 2;
   padding: 18px 20px;
   font-size: 16px;
   user-select: none;
@@ -996,6 +1029,23 @@ kbd {
   border-color: transparent;
   color: white;
   box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.25);
+}
+.sk-submit-btn {
+  padding: 18px 20px;
+  font-size: 16px;
+}
+.sk-submit-btn:disabled {
+  cursor: not-allowed;
+  background: var(--surface);
+  color: var(--text-dim);
+  border-color: var(--border);
+  box-shadow: none;
+  transform: none;
+}
+
+@media (max-width: 640px) {
+  .sk-actions { grid-template-columns: 1fr 1fr; }
+  .sk-actions-free { grid-template-columns: 1fr 1fr 1fr; }
 }
 
 .sk-feedback {
