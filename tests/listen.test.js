@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { generateListenQuestion, judgeListenAnswer, createListenSession } from '../src/modes/listen.js';
-import wordsBank from '../src/data/words.json';
-import sentencesBank from '../src/data/sentences.json';
+import wordsBank from '../src/data/words.js';
+import sentencesBank from '../src/data/sentences.js';
 
 describe('generateListenQuestion()', () => {
   it('returns a letter-mode question', () => {

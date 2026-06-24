@@ -15,8 +15,8 @@
 import { encode } from '../core/encoder.js';
 import { playMorse } from '../core/audio.js';
 import { judgeAnswer } from './forward.js';
-import wordsBank from '../data/words.json';
-import sentencesBank from '../data/sentences.json';
+import wordsBank from '../data/words.js';
+import sentencesBank from '../data/sentences.js';
 
 const LETTER_POOL = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split('');
 
