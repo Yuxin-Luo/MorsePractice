@@ -19,10 +19,10 @@
     </header>
 
     <nav class="direction-bar">
-      <button class="direction-btn active" data-direction="forward" data-i18n="direction.forward">看码打字 →</button>
-      <button class="direction-btn" data-direction="listen" data-i18n="direction.listen">👂 听码打字</button>
       <button class="direction-btn" data-direction="translator" data-i18n="direction.translator">🔄 翻译</button>
       <button class="direction-btn" data-direction="straightkey" data-i18n="direction.straightkey">⌨️ 拍码</button>
+      <button class="direction-btn active" data-direction="forward" data-i18n="direction.forward">看码打字 →</button>
+      <button class="direction-btn" data-direction="listen" data-i18n="direction.listen">👂 听码打字</button>
     </nav>
 
     <nav class="mode-bar">
@@ -155,8 +155,14 @@
         <button class="sk-mode-btn" data-sk-mode="practice" data-i18n="straightkey.modePractice">目标练习</button>
       </nav>
       <div class="sk-practice-only hidden" id="sk-practice-controls">
-        <span class="sk-target-label" data-i18n="straightkey.target">目标</span>:
-        <span id="sk-target" class="sk-target"></span>
+        <div class="sk-target-row">
+          <span class="sk-target-label" data-i18n="straightkey.target">目标</span>:
+          <span id="sk-target" class="sk-target"></span>
+          <button id="sk-toggle-target" class="toggle-hint-btn sk-toggle-target" type="button">
+            <span class="toggle-icon" aria-hidden="true">🙈</span>
+            <span class="toggle-label" data-i18n="straightkey.hideTarget">隐藏目标</span>
+          </button>
+        </div>
         <nav class="mode-bar sk-submode">
           <button class="sk-submode-btn active" data-sk-submode="letter" data-i18n="mode.letter">字母 / 数字</button>
           <button class="sk-submode-btn" data-sk-submode="word" data-i18n="mode.word">单词</button>

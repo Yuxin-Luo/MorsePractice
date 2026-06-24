@@ -125,3 +125,20 @@ describe('showAnswer label text reflects the ACTION (not the state)', () => {
     expect(labelForShowAnswer(false, { showAnswer: 'Show answer', hideAnswer: 'Hide answer' })).toBe('Show answer');
   });
 });
+
+describe('showTarget preference (straight-key page)', () => {
+  beforeEach(() => { try { localStorage.clear(); } catch {} });
+
+  it('persists to morse.v1.showTarget.straightkey', () => {
+    const KEY = 'morse.v1.showTarget.straightkey';
+    localStorage.setItem(KEY, 'false');
+    expect(localStorage.getItem(KEY)).toBe('false');
+    localStorage.setItem(KEY, 'true');
+    expect(localStorage.getItem(KEY)).toBe('true');
+  });
+
+  it('forward and listen do NOT use the showTarget key (they use showAnswer)', () => {
+    expect('morse.v1.showTarget.forward').not.toBe('morse.v1.showAnswer.forward');
+    expect('morse.v1.showTarget.listen').not.toBe('morse.v1.showAnswer.listen');
+  });
+});

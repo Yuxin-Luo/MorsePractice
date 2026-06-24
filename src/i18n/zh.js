@@ -91,6 +91,8 @@ export default {
     modePractice: '目标练习',
     target: '目标',
     nextTarget: '下一题 →',
+    hideTarget: '隐藏目标',
+    showTarget: '显示目标',
     recognized: '识别',
     current: '当前',
     possible: '可能',

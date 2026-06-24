@@ -45,12 +45,19 @@ export function attachTranslator({ textArea, morseArea, playBtn }) {
     if (syncing) return;
     syncing = true;
     try {
-      const morse = morseArea.value.trim();
-      if (!morse) {
+      const raw = morseArea.value;
+      if (!raw.trim()) {
         textArea.value = '';
         return;
       }
-      const chars = morse.split(/\s+/).map((token) => {
+      // Normalize: add spaces around `/` so it always parses as a
+      // word-separator token regardless of whether the user typed
+      // spaces around it. e.g. both `..../....` and `.... / ....`
+      // become `.... / ....` after this step.
+      const normalized = raw
+        .replace(/\s*\/\s*/g, ' / ')
+        .trim();
+      const chars = normalized.split(/\s+/).map((token) => {
         if (!token) return '';
         if (token === '/') return ' ';
         // decode() returns '?' for unknown — if so, keep raw token
@@ -68,7 +75,10 @@ export function attachTranslator({ textArea, morseArea, playBtn }) {
   const onMorseInput = () => syncFromMorse();
   const onPlayClick = async () => {
     stop();
-    const morse = morseArea.value.trim();
+    // Use the canonical encoded form so playMorse sees properly-spaced tokens
+    const morse = morseArea.value
+      .replace(/\s*\/\s*/g, ' / ')
+      .trim();
     if (morse) {
       try {
         await playMorse(morse, { wpm: 15, frequency: 600, volume: 0.25 });

@@ -91,6 +91,8 @@ export default {
     modePractice: 'Practice',
     target: 'Target',
     nextTarget: 'Next →',
+    hideTarget: 'Hide target',
+    showTarget: 'Show target',
     recognized: 'Recognized',
     current: 'Current',
     possible: 'Possible',

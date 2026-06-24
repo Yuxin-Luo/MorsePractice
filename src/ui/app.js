@@ -65,6 +65,9 @@ const els = {
   skPracticeControls: () => $('#sk-practice-controls'),
   skTarget: () => $('#sk-target'),
   skNextTarget: () => $('#sk-next-target'),
+  skToggleTarget: () => $('#sk-toggle-target'),
+  skToggleTargetLabel: () => $('#sk-toggle-target .toggle-label'),
+  skToggleTargetIcon: () => $('#sk-toggle-target .toggle-icon'),
   skRecognized: () => $('#sk-recognized'),
   skCurrent: () => $('#sk-current'),
   skPossible: () => $('#sk-possible'),
@@ -131,12 +134,55 @@ function setShowAnswer(v) {
 // In-memory cache, initialized on initApp() and updated when direction changes.
 const showAnswerCache = { forward: null, listen: null };
 
+/**
+ * Per-direction preference: should we show the target on the straight-key
+ * practice page? Default true (show), persisted under
+ * 'morse.v1.showTarget.straightkey'. (forward/listen don't use this.)
+ */
+const SHOW_TARGET_DEFAULTS = { straightkey: true };
+const SHOW_TARGET_KEY_PREFIX = 'morse.v1.showTarget.';
+
+function loadShowTarget(d) {
+  try {
+    const v = localStorage.getItem(SHOW_TARGET_KEY_PREFIX + d);
+    if (v === 'true') return true;
+    if (v === 'false') return false;
+  } catch {}
+  return SHOW_TARGET_DEFAULTS[d] ?? true;
+}
+function saveShowTarget(d, v) {
+  try { localStorage.setItem(SHOW_TARGET_KEY_PREFIX + d, String(!!v)); } catch {}
+}
+const showTargetCache = { straightkey: null };
+function getShowTarget() {
+  return showTargetCache.straightkey ?? SHOW_TARGET_DEFAULTS.straightkey ?? true;
+}
+function setShowTarget(v) {
+  showTargetCache.straightkey = !!v;
+  saveShowTarget('straightkey', !!v);
+  renderStraightKeyTargetToggle();
+  // Re-render the current page state (target visibility)
+  if (direction === 'straightkey' && straightkeySession) {
+    renderStraightKeyState(straightkeySession.getState());
+  }
+}
+
 /** Initialize the app. */
 export function initApp() {
   console.log('[initApp] start, subMode =', JSON.stringify(subMode), 'direction =', JSON.stringify(direction));
+  // Surface any unhandled async errors to console so they don't appear
+  // as scary "Uncaught (in promise)" red banners in DevTools.
+  // These usually come from playMorse / playTone being aborted by a tab
+  // switch mid-playback; the error is benign but the dev console noise
+  // is confusing.
+  window.addEventListener('unhandledrejection', (e) => {
+    console.warn('[initApp] unhandled rejection (likely aborted audio):', e.reason);
+    e.preventDefault();
+  });
   // Load per-direction "show answer" preference from localStorage.
   showAnswerCache.forward = loadShowAnswer('forward');
   showAnswerCache.listen = loadShowAnswer('listen');
+  showTargetCache.straightkey = loadShowTarget('straightkey');
   renderStats();
   bindDirectionButtons();
   bindModeButtons();
@@ -169,11 +215,12 @@ function renderPageVisibility() {
   const isTranslator = direction === 'translator';
   const isStraightKey = direction === 'straightkey';
 
-  // Practice sections (prompt + input + actions + feedback)
+  // Practice sections (prompt + input + actions). Feedback is special:
+  // it has its own .hidden toggle managed by renderResult / clearFeedback,
+  // so we DON'T touch it here.
   if (els.promptArea()) els.promptArea().classList.toggle('hidden', !isPractice);
   if (els.inputArea()) els.inputArea().classList.toggle('hidden', !isPractice);
   if (els.actionBar()) els.actionBar().classList.toggle('hidden', !isPractice);
-  if (els.feedback()) els.feedback().classList.toggle('hidden', !isPractice || true); // feedback has its own hidden state; just leave it
   // Translator + straight-key pages
   if (els.translatorPage()) els.translatorPage().classList.toggle('hidden', !isTranslator);
   if (els.straightkeyPage()) els.straightkeyPage().classList.toggle('hidden', !isStraightKey);
@@ -182,7 +229,7 @@ function renderPageVisibility() {
   const modeBar = document.querySelector('.mode-bar');
   if (modeBar) modeBar.classList.toggle('hidden', !isPractice);
 
-  // Reset stats panel is always visible
+  // Result panels + tips + secondary bar are always visible
 }
 
 /** Start a fresh session. Resets history. Used on boot and on direction/mode change. */
@@ -398,7 +445,11 @@ function bindInputField() {
 
 function bindKeyboardShortcuts() {
   document.addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'INPUT') return;
+    // Don't hijack keys when the user is typing into a form field
+    // (input, textarea, contenteditable). Otherwise typing a space
+    // in the translator textarea would silently switch to play.
+    const tag = e.target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
     // Straight-key page owns Space (and other modifier interactions).
     if (direction === 'straightkey') return;
     if (e.key === ' ') {
@@ -410,13 +461,12 @@ function bindKeyboardShortcuts() {
       els.nextBtn().click();
     } else if (e.key === 'p' || e.key === 'P') {
       els.prevBtn().click();
-    } else if (e.key === '1') {
-      document.querySelector('.direction-btn[data-direction="forward"]').click();
-    } else if (e.key === '2') {
-      document.querySelector('.direction-btn[data-direction="listen"]').click();
     } else if (e.key === '?') {
       els.referenceBtn()?.click();
     }
+    // Note: number keys 1/2/3/4 used to switch tabs, but they conflict
+    // with typing digits in the translator. Removed — users should click
+    // the tab directly. Direction buttons are large and obvious.
   });
 }
 
@@ -514,10 +564,17 @@ function renderStraightKeyState(state) {
       : '';
     posEl.style.opacity = state.possible.length > 0 ? '1' : '0.3';
   }
-  // Practice-mode target display
+  // Practice-mode target display (respects the show-target toggle)
   const tgtEl = els.skTarget();
   if (tgtEl) {
-    tgtEl.textContent = state.target || '';
+    if (state.mode === 'practice') {
+      const show = getShowTarget();
+      tgtEl.textContent = show ? (state.target || '') : (t('prompt.maskItem') || '? ? ?');
+      tgtEl.classList.toggle('hidden-by-toggle', !show);
+    } else {
+      tgtEl.textContent = '';
+      tgtEl.classList.remove('hidden-by-toggle');
+    }
   }
   // Show/hide practice controls
   const practiceControls = els.skPracticeControls();
@@ -532,6 +589,22 @@ function renderStraightKeyState(state) {
   els.skSubModeButtons().forEach((b) => {
     b.classList.toggle('active', b.dataset.skSubmode === state.subMode);
   });
+  // Update the toggle button label
+  renderStraightKeyTargetToggle();
+}
+
+/** Update the show/hide-target button label/icon based on current showTarget state. */
+function renderStraightKeyTargetToggle() {
+  const btn = els.skToggleTarget();
+  if (!btn) return;
+  const show = getShowTarget();
+  const label = show ? t('straightkey.hideTarget') : t('straightkey.showTarget');
+  const labelEl = els.skToggleTargetLabel();
+  if (labelEl) labelEl.textContent = label;
+  const iconEl = els.skToggleTargetIcon();
+  if (iconEl) iconEl.textContent = show ? '🙈' : '👁️';
+  btn.classList.toggle('active', show);
+  btn.setAttribute('aria-pressed', show ? 'true' : 'false');
 }
 
 function renderStraightKeyResult(result) {
@@ -568,6 +641,9 @@ function bindStraightKeyControls() {
     // Clear any previous feedback
     const fb = els.skFeedback();
     if (fb) { fb.classList.add('hidden'); fb.textContent = ''; }
+  });
+  els.skToggleTarget()?.addEventListener('click', () => {
+    setShowTarget(!getShowTarget());
   });
   els.skBackspace()?.addEventListener('click', () => {
     straightkeySession?.backspace();

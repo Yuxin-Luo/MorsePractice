@@ -104,4 +104,27 @@ describe('translator (live bidirectional sync)', () => {
     text.dispatchEvent(new Event('input', { bubbles: true }));
     expect(morse.value).toBe(''); // not updated after detach
   });
+
+  it('treats / as word separator even without surrounding spaces', () => {
+    handle = attachTranslator({ textArea: text, morseArea: morse });
+    // No spaces around the slash — should still be normalized to " / "
+    morse.value = '..../....';
+    morse.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(text.value).toBe('H H');
+  });
+
+  it('handles / with mixed spacing (extra spaces, no spaces)', () => {
+    handle = attachTranslator({ textArea: text, morseArea: morse });
+    morse.value = '.... /.-';
+    morse.dispatchEvent(new Event('input', { bubbles: true }));
+    // After normalization: ".... / .-", decode → "H" + " " + "A"
+    expect(text.value).toBe('H A');
+  });
+
+  it('treats standalone / as space (not as unknown char)', () => {
+    handle = attachTranslator({ textArea: text, morseArea: morse });
+    morse.value = '/';
+    morse.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(text.value).toBe(' ');
+  });
 });
