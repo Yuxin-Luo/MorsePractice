@@ -1,0 +1,18 @@
+{
+  "packageId": "com.github.yuxinluo.morsepractice",
+  "host": "morsepractice.pages.dev",
+  "name": "摩斯密码练习器",
+  "launcherName": "Morse Practice",
+  "display": "standalone",
+  "orientation": "portrait",
+  "themeColor": "#6c5ce7",
+  "backgroundColor": "#f7f8fc",
+  "enableNotifications": false,
+  "startUrl": "/",
+  "iconUrl": "https://morsepractice.pages.dev/assets/icon-512.png",
+  "splashColor": "#6c5ce7",
+  "webManifestUrl": "https://morsepractice.pages.dev/manifest.json",
+  "fallbackType": "customtabs",
+  "appVersion": "0.1.0",
+  "versionCode": 10000
+}
