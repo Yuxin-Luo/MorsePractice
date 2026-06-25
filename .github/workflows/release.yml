@@ -89,7 +89,9 @@ jobs:
           merge-multiple: true
       - name: Generate changelog
         id: cliff
-        uses: orhunp/git-cliff-action@v3
+        # 注:仓库是 orhun/git-cliff-action (orhun 的 GitHub 用户名没有 p)
+        # npm 上 orhunp 是别名,这里用 GitHub 路径
+        uses: orhun/git-cliff-action@v3
         with:
           config: release/cliff.toml
           args: --verbose

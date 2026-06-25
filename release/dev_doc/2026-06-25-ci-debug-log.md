@@ -497,3 +497,51 @@ gh release upload vX.Y.Z release/dist/*.apk --clobber
 - 给出本地环境清单（JDK 17、cmdline-tools、licenses、tools symlink、我的kEY 凭据）
 - 给出完整 build 步骤 + 验证步骤 + 失败排错表
 - 目标是：下一位 agent 拿到本指南后，能在 30 分钟内本地出第一个 APK
+
+### 2026-06-25 12:30 | git-cliff-action "repository not found"（用户名写错）
+
+**症状**
+
+```
+Prepare all required actions
+Getting action download info
+Error: Unable to resolve action orhunp/git-cliff-action, repository not found
+```
+
+**根因**
+
+plan 里写 `orhunp/git-cliff-action@v3`，但 GitHub 上的实际仓库是
+`orhun/git-cliff-action`（Orhun Parmaksız 的 GitHub 用户名是 `orhun`，**没有 `p`**）。
+
+`orhunp` 是 npm 上的别名（`npm install -g git-cliff`），跟 GitHub 仓库名不是一回事。
+
+**验证**：
+```bash
+$ curl -sI https://github.com/orhunp/git-cliff-action
+HTTP/2 404    ← 不存在
+
+$ curl -sI https://github.com/orhun/git-cliff-action
+HTTP/2 200    ← 真实仓库
+```
+
+**修复**（commit `<待 push>`）
+
+```yaml
+# 改之前
+uses: orhunp/git-cliff-action@v3
+
+# 改之后
+uses: orhun/git-cliff-action@v3
+```
+
+**commit** `<待 push>`
+
+**教训**
+
+写 GitHub Actions 时区分两个 namespace：
+- **GitHub repo**：`username/repo`（区分大小写、严格匹配）
+- **npm package**：`@scope/name`（可以跟 repo 名不一样）
+
+涉及到第三方 action 时：
+- 先 `curl -sI https://github.com/<user>/<repo>` 验证 200 再写
+- 别直接抄别人 workflow 文件里的名字（可能他们的 user 名也写错了）
