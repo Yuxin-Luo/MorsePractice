@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+chmod 755 /usr/bin/morse-practice
+chmod -R a+rX /opt/morse-practice
+# Update desktop database
+if [ -x /usr/bin/update-desktop-database ]; then
+  update-desktop-database /usr/share/applications 2>/dev/null || true
+fi
+exit 0

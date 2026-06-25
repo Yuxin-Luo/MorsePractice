@@ -1,0 +1,12 @@
+Package: morse-practice
+Version: 0.2.0
+Section: education
+Priority: optional
+Architecture: amd64
+Depends: python3, xdg-utils
+Recommends: chromium | google-chrome | firefox
+Maintainer: Yuxin Luo <your-email@example.com>
+Homepage: https://morsepractice.pages.dev/
+Description: 摩斯密码练习器 (Morse Practice)
+ 一个支持字母/单词/句子三档练习、双向听打、键盘拍码的摩斯码练习工具。
+ 纯前端实现，可离线使用。

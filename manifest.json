@@ -2,6 +2,7 @@
   "name": "摩斯密码练习器",
   "short_name": "Morse Practice",
   "description": "一个支持字母/单词/句子三档练习、双向听打、键盘拍码的摩斯码练习工具",
+  "version": "0.1.0",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

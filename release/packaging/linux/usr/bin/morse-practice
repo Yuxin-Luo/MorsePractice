@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Morse Practice · Linux 启动器
+# 启动本地静态服务器并打开浏览器
+set -e
+ASSETS=/opt/morse-practice
+PORT=${MORSE_PORT:-18765}
+URL="http://127.0.0.1:$PORT/"
+
+# 检查资源目录
+if [ ! -d "$ASSETS" ]; then
+  echo "错误：找不到资源目录 $ASSETS" >&2
+  echo "请尝试重新安装本软件包" >&2
+  exit 1
+fi
+
+# 启动后台服务器
+cd "$ASSETS"
+python3 -m http.server "$PORT" --bind 127.0.0.1 >/dev/null 2>&1 &
+SERVER_PID=$!
+trap "kill $SERVER_PID 2>/dev/null" EXIT
+
+# 等服务器就绪
+sleep 0.3
+
+# 探测并打开浏览器
+if command -v chromium >/dev/null 2>&1; then
+  chromium --app="$URL" >/dev/null 2>&1 &
+elif command -v google-chrome >/dev/null 2>&1; then
+  google-chrome --app="$URL" >/dev/null 2>&1 &
+elif command -v firefox >/dev/null 2>&1; then
+  firefox --new-window "$URL" >/dev/null 2>&1 &
+else
+  xdg-open "$URL" >/dev/null 2>&1 &
+fi
+
+# 提示并等待
+echo "Morse Practice 已启动：$URL"
+echo "关闭此窗口或按 Enter 停止服务..."
+read -r _
+kill $SERVER_PID 2>/dev/null

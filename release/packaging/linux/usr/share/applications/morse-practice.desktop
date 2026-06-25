@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=摩斯密码练习器
+Name[en]=Morse Practice
+GenericName=Morse Code Practice Tool
+Comment=Practice Morse code in your browser, offline
+Exec=morse-practice
+Icon=morse-practice
+Terminal=true
+Categories=Education;Languages;
+StartupNotify=true
+StartupWMClass=Morse Practice
