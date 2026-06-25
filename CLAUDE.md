@@ -45,7 +45,6 @@
 
 ### 不许动
 
-- ❌ `release/scripts/build-*.sh` —— 6 轮 debug 已验证的脚本，改动 = 重新踩坑
 - ❌ `mykEY/morse-practice.keystore` —— **gitignored，丢了 = 永远无法升级已发布 APK**
 - ❌ `mykEY/password.txt` —— 同上
 - ❌ 恢复 CI workflow（除非用户明确要求）—— 已确认失败
@@ -81,6 +80,28 @@
 | Android SHA-256 | `6F71A59E042C2376697C6AF89FD21802E2FCA613D48DAE9566A01C3BAE433919` |
 | Bubblewrap 版本 | 1.24.1（不要升 2.x，未测） |
 | GitHub Secrets（3 个） | 保留中，备查恢复 CI 用 |
+| **Android build 当前状态** | **❌ 未实测通过**——见下方「⚠️ 当前阻塞」 |
+
+---
+
+## ⚠️ 当前阻塞（2026-06-25 22:00）
+
+**Android 构建未实测通过**——之前多轮在 Bubblewrap 1.24.1 内部细节上猜测（manifest 字段 / SHA-1 算法 / checksum 文件名），已接近幻觉。
+
+**事实**（已实测）：
+- `manifest-checksum.txt` 和 `twa-manifest.json` 的 SHA-1 已 match（`c7da6d...`）
+- `app/build.gradle` 已被 sed patch 到正确值
+- WebSearch 工具在本环境**不可用**（API 400），无法从网络找攻略
+- `init-android.sh` 第 26 行的检测 `.bubblewrap/checksum.json` 是错的（1.24.1 实际生成 `manifest-checksum.txt`）
+- **最新 build 未实测**
+
+**三个方向（等用户决定，不给推荐）**
+
+1. **暂停 Android，只发 Linux + Windows v0.2.0**——这两个平台已实测通过
+2. **换工具**（PWA Builder / Capacitor）——需要用户自己搜攻略
+3. **继续 Bubblewrap 1.24.1**——先实测一次 build，不循环猜
+
+详细见 `release/dev_doc/2026-06-25-ci-debug-log.md` 末尾「2026-06-25 22:00」段。
 
 ---
 

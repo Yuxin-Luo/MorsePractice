@@ -670,3 +670,59 @@ bash release/scripts/build-android.sh
 - 第三方 CLI 的"必须交互式"设计是**反自动化**的——CI/local script 都会卡
 - 当 wrapper（pexpect / expect）不好写时，**拆 init 为独立步骤**是更稳妥的方案
 - 用户偏好"全盘接手"+"本地手动"——init 跑一次不像 build 每次跑，拆开是合理设计
+
+---
+
+### 2026-06-25 22:00 | 当前阻塞状态——不再猜测，停下来等用户决定方向
+
+**事实（已用 `sha1sum` / `ls` / `cat` 实测过）**
+
+- `release/.android-project/manifest-checksum.txt` 内容：`c7da6da07b1ec53a321f6db7ddd15bb84b2c906e`
+- `release/.android-project/twa-manifest.json` 的 sha1：`c7da6da07b1ec53a321f6db7ddd15bb84b2c906e`
+- **两者 SHA-1 完全一致**（用 `sha1sum` 实测）
+- `app/build.gradle` 已被 `build-android.sh` 的 sed 改对：`versionCode 10100`、`versionName "0.1.0"`、`webManifestUrl` 和 `fullScopeUrl` 都是 morsepractice.pages.dev、`launcherName` 是 `Morse Practice`、`hostName` 是 `morsepractice.pages.dev`
+- `release/.android-project/.bubblewrap/` 目录**不存在**——`init-android.sh` 第 26 行的检测逻辑 `[ -f "$PROJECT_DIR/.bubblewrap/checksum.json" ]` 对 Bubblewrap 1.24.1 **是错的**（实际生成的是 `manifest-checksum.txt`，不是 `.bubblewrap/checksum.json`）
+- WebSearch 工具对 3 个不同查询都返回 `400 invalid params` —— **本环境无网络攻略可查**
+- **最新 build 还没实际跑过**——上次失败是在 sha1 还不 match 时；现在 sha1 已 match 但 build 内部是否还会因为别的原因报"apply changes"未验证
+
+**根因（部分）**
+
+- 我之前的修复循环（`build.gradle` patch、`twa-manifest.json` 字段重写、`manifest-checksum.txt` 同步）多轮没有收敛到"实测 build 通过"——已超出合理调试范围
+- Bubblewrap 1.24.x 的内部状态检测不止 SHA-1（可能包括 `app/build.gradle` 修改时间 / 内部 cache），未实测不能断言修了哪条
+
+**修复**
+
+**没修**——按用户要求**停下来**。猜测已不再可信。
+
+**commit**
+
+无
+
+**待办（按用户「不提供思路，只列事项」原则）**
+
+1. **决定 Android 方向**（三选一，等用户选）：
+   - **A. 暂停 Android，只发 Linux + Windows v0.2.0**——这两个平台已实测通过（670K .deb / 7.8M .exe），今天就能出 release
+   - **B. 换工具**——调研候选：PWA Builder（https://www.pwabuilder.com/ ，微软做的 web 服务，一键打包）、Capacitor（npm 包）、直接 `pwabuilder-cli`（命令行版）。需要用户自己搜最新攻略（我的 WebSearch 工具挂了）
+   - **C. 继续 Bubblewrap 1.24.1**——先实测一次 build 看 sha1 match 后是不是真的过；如果没过，让用户用浏览器搜 `bubblewrap build apply changes manifest-checksum 2026` GitHub issues
+2. **如果继续 Bubblewrap**——修 `init-android.sh` 第 26 行的检测逻辑（`.bubblewrap/checksum.json` → `manifest-checksum.txt`）
+3. **如果继续 Bubblewrap**——实测一次 `bash release/scripts/build-android.sh`，**只看第一行报错**就停下，不循环猜
+4. **`twa-manifest.json` 第 5 行的 `launcherName: "MS_P"` 是用户 init 时手抖输入的拼写错误**——如果选 A/B/C 中任何一条继续 build，要么重 init 要么让 build-android.sh 多一行 sed 修这个字段（已在主 manifest 修，sed 还要再加一条修 manifest 文件本身）
+
+**教训**
+
+- **承认"我可能已经猜错"比"再试一次"更省时间**——本会话在 Bubblewrap 内部细节上猜了 N 次（manifest 字段名 / SHA-1 算法 / cd 路径 / checksum 文件名），仍未实测 build 通过
+- **WebSearch / 网络攻略是必备资源**——没它时，对小众工具（Bubblewrap 1.24.x 这种冷门版本）的判断力会迅速下降到猜测水平
+- **"打包难"通常是工具问题，不是代码问题**——本项目主体（HTML/JS/CSS PWA）无任何复杂度，APK 打包是工具链卡住
+
+**用户原话引用**
+
+> 我的疑问：
+> 1. 为什么其他的静态 web 项目很快就能打包成功，而我这份几乎没有任何复杂性的代码你打包为 apk 的过程却处处受到波折
+> 2. 你有没有考虑可能是我们遇到了系统性的问题，你需要先从网络找到近期的对应的攻略而非依靠自己的知识库，因为之前你给我的 init 教程实际上无法与他给我的交互内容一一对应。
+> 3. 如果你感觉自己现在幻觉严重请合理修改开发文档和 claude.md，并点明后续待做事项而不需要提供参考思路
+
+**承认三条**
+
+1. Bubblewrap 是冷门 + 老旧工具，社区主流用 PWA Builder / Capacitor
+2. 没先从网络找攻略就先动手，**流程错了**——init 教程跟实际 prompt 对不上就是后果
+3. 多轮猜测已接近幻觉——按用户指示停下，不再调
