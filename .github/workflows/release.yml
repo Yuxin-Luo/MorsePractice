@@ -93,11 +93,21 @@ jobs:
           packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
       - name: Pre-configure Bubblewrap (skip interactive JDK/SDK prompts)
         run: |
+          set -e
           mkdir -p ~/.bubblewrap
-          cat > ~/.bubblewrap/config.json <<EOF
-          {"jdkPath":"$JAVA_HOME","androidSdkPath":"$ANDROID_HOME"}
-          EOF
+          # 用 printf + 单引号避免 heredoc / YAML 变量展开问题
+          JAVA_HOME_VAL="${JAVA_HOME:?JAVA_HOME must be set}"
+          ANDROID_HOME_VAL="${ANDROID_HOME:?ANDROID_HOME must be set}"
+          printf '{"jdkPath":"%s","androidSdkPath":"%s"}\n' \
+            "$JAVA_HOME_VAL" "$ANDROID_HOME_VAL" > ~/.bubblewrap/config.json
+          echo "Wrote Bubblewrap config:"
           cat ~/.bubblewrap/config.json
+          # 验证 JDK release 文件存在且包含 JAVA_VERSION="17.0
+          if [ -f "$JAVA_HOME_VAL/release" ]; then
+            grep '^JAVA_VERSION' "$JAVA_HOME_VAL/release" || true
+          else
+            echo "::warning::No release file at $JAVA_HOME_VAL/release — Bubblewrap may reject this JDK"
+          fi
       - name: Decode keystore
         run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > /tmp/keystore.jks
       - name: Verify keystore + secrets
