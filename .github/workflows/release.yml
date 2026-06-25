@@ -91,18 +91,48 @@ jobs:
       - uses: android-actions/setup-android@v3
         with:
           packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
+      - name: Verify & fix Android SDK structure (Bubblewrap hard-requires licenses/)
+        run: |
+          set -e
+          echo "=== ANDROID_HOME: $ANDROID_HOME ==="
+          ls -la "$ANDROID_HOME"
+          echo ""
+          # Bubblewrap 校验这 4 个子目录必须都存在
+          for d in platform-tools platforms build-tools licenses; do
+            if [ -d "$ANDROID_HOME/$d" ]; then
+              echo "✓ $ANDROID_HOME/$d/ exists"
+            else
+              echo "✗ $ANDROID_HOME/$d/ MISSING"
+            fi
+          done
+          # android-actions/setup-android@v3 偶尔不创建 licenses/，
+          # 用 sdkmanager --licenses 的标准 accepted-hashes 补一份
+          if [ ! -d "$ANDROID_HOME/licenses" ]; then
+            echo ""
+            echo "→ Creating $ANDROID_HOME/licenses/ with standard accepted-license hashes..."
+            mkdir -p "$ANDROID_HOME/licenses"
+            # 这些 hash 是 'sdkmanager --licenses' 写入的官方 accepted 标记
+            printf '\n24333f8a63b6825ea9c5514f83c2829b004d1fee\n504667f4c0de7af1a06de9f4b1727b84351f2910\n' \
+              > "$ANDROID_HOME/licenses/android-sdk-license"
+            printf '\n84831b9409646a918e30573bab4c9c91346d8abd' \
+              > "$ANDROID_HOME/licenses/android-sdk-preview-license"
+            echo "✓ Created licenses/"
+          fi
+          echo ""
+          echo "=== Final licenses/ ==="
+          ls -la "$ANDROID_HOME/licenses/" 2>/dev/null
       - name: Pre-configure Bubblewrap (skip interactive JDK/SDK prompts)
         run: |
           set -e
           mkdir -p ~/.bubblewrap
-          # 用 printf + 单引号避免 heredoc / YAML 变量展开问题
+          # 用 printf 替代 heredoc，避免 YAML 变量展开吞掉路径
           JAVA_HOME_VAL="${JAVA_HOME:?JAVA_HOME must be set}"
           ANDROID_HOME_VAL="${ANDROID_HOME:?ANDROID_HOME must be set}"
           printf '{"jdkPath":"%s","androidSdkPath":"%s"}\n' \
             "$JAVA_HOME_VAL" "$ANDROID_HOME_VAL" > ~/.bubblewrap/config.json
           echo "Wrote Bubblewrap config:"
           cat ~/.bubblewrap/config.json
-          # 验证 JDK release 文件存在且包含 JAVA_VERSION="17.0
+          # 验证 JDK release 文件（Bubblewrap 强校验 JAVA_VERSION="17.0.x"）
           if [ -f "$JAVA_HOME_VAL/release" ]; then
             grep '^JAVA_VERSION' "$JAVA_HOME_VAL/release" || true
           else
