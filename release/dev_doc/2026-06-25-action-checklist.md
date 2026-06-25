@@ -299,9 +299,25 @@ gh release create v0.2.0 ... (同阶段 4)
 
 | 不再做 | 原因 |
 |--------|------|
-| ~~配置 `ANDROID_KEYSTORE_*` GitHub Secrets~~ | CI 不再用 |
 | ~~推 tag 后等 Actions 跑 5min~~ | CI 不自动跑 |
 | ~~看 `release/dist/*.apk` 是否被 release job 收~~ | APK 本地上传 |
+
+## 🔐 已配置但暂不使用的 GitHub Secrets
+
+| Secret | 状态 | 用途 |
+|--------|------|------|
+| `ANDROID_KEYSTORE_BASE64` | ✅ 已存（Repository Secret） | 备查：将来恢复 CI 编 APK |
+| `ANDROID_KEYSTORE_PASS` | ✅ 已存 | 同上 |
+| `ANDROID_KEY_PASS` | ✅ 已存 | 同上 |
+
+**目前**没有任何 workflow step 引用这 3 个 Secret（CI release 流程已禁用 + release job 已删）。
+**保留理由**：万一未来想恢复 CI 编 APK，无需重新 base64 keystore / 复制密码——Secrets 已在位。
+
+**删除触发条件**（任一）：
+- 决定永远不会恢复 CI 编 APK → 手动从 https://github.com/Yuxin-Luo/MorsePractice/settings/secrets/actions 删除
+- Repo 准备公开 → **必须**先删（基线安全）
+
+注：删除需 `secrets:write` 权限，gh CLI 当前 token 没有，所以只能网页操作。
 
 ## 🔧 恢复 CI（万一以后想要）
 
