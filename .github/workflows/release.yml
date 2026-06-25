@@ -8,7 +8,7 @@ permissions:
   contents: write
 
 jobs:
-  # 1. 共享：构建 web 资源（上传给下游 4 个 job）
+  # 1. 共享：构建 web 资源（上传给下游 2 个 job）
   build-assets:
     name: Build web assets
     runs-on: ubuntu-latest
@@ -68,122 +68,14 @@ jobs:
           name: morse-practice-windows-exe
           path: release/dist/*.exe
 
-  # 4. Android .apk
-  build-android:
-    name: Build Android .apk
-    needs: build-assets
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: web-assets
-          path: release/dist/web
-      - uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Install Bubblewrap CLI
-        run: npm install -g @bubblewrap/cli
-      - uses: android-actions/setup-android@v3
-        with:
-          packages: 'cmdline-tools;latest platform-tools platforms;android-34 build-tools;34.0.0'
-      - name: Verify Android SDK structure (Bubblewrap hard-requires cmdline-tools/latest)
-        run: |
-          set -e
-          echo "=== ANDROID_HOME: $ANDROID_HOME ==="
-          ls -la "$ANDROID_HOME"
-          echo ""
-          # Bubblewrap 1.24.x 校验: cmdline-tools/latest/, platform-tools/, platforms/, build-tools/, licenses/
-          for d in cmdline-tools/latest platform-tools platforms build-tools licenses; do
-            if [ -d "$ANDROID_HOME/$d" ]; then
-              echo "✓ $ANDROID_HOME/$d/ exists"
-            else
-              echo "✗ $ANDROID_HOME/$d/ MISSING"
-            fi
-          done
-          # 验证 sdkmanager 可用（Bubblewrap 调它来更新项目）
-          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          if [ -x "$SDKMANAGER" ]; then
-            echo ""
-            echo "✓ sdkmanager found at $SDKMANAGER"
-            "$SDKMANAGER" --version
-          else
-            echo "::error::sdkmanager not found or not executable: $SDKMANAGER"
-            exit 1
-          fi
-          # 保险起见,显式接受一次 licenses（覆盖空文件情况）
-          echo ""
-          echo "→ Accepting SDK licenses via sdkmanager..."
-          yes | "$SDKMANAGER" --licenses 2>&1 | tail -5
-          echo ""
-          echo "=== Final licenses/ ==="
-          ls -la "$ANDROID_HOME/licenses/" 2>/dev/null
-          echo ""
-          # ★★★ 关键修复 ★★★
-          # Bubblewrap 1.24.1 的 AndroidSdkTools.validatePath 校验:
-          #   if (!exists(sdkPath/tools) && !exists(sdkPath/bin)) → error
-          # 但现代 SDK 全部在 cmdline-tools/latest/ 下,既没 tools/ 也没 bin/。
-          # 用 symlink 让校验通过（不影响实际使用,sdkmanager 还是从 cmdline-tools/latest/ 调用）
-          if [ ! -e "$ANDROID_HOME/tools" ] && [ ! -e "$ANDROID_HOME/bin" ]; then
-            echo "→ Creating $ANDROID_HOME/tools → cmdline-tools/latest symlink (Bubblewrap compat)"
-            ln -sfn "$ANDROID_HOME/cmdline-tools/latest" "$ANDROID_HOME/tools"
-            ls -la "$ANDROID_HOME/tools/bin/sdkmanager"
-          fi
-      - name: Pre-configure Bubblewrap (skip interactive JDK/SDK prompts)
-        run: |
-          set -e
-          mkdir -p ~/.bubblewrap
-          # 用 printf 替代 heredoc，避免 YAML 变量展开吞掉路径
-          JAVA_HOME_VAL="${JAVA_HOME:?JAVA_HOME must be set}"
-          ANDROID_HOME_VAL="${ANDROID_HOME:?ANDROID_HOME must be set}"
-          printf '{"jdkPath":"%s","androidSdkPath":"%s"}\n' \
-            "$JAVA_HOME_VAL" "$ANDROID_HOME_VAL" > ~/.bubblewrap/config.json
-          echo "Wrote Bubblewrap config:"
-          cat ~/.bubblewrap/config.json
-          # 验证 JDK release 文件（Bubblewrap 强校验 JAVA_VERSION="17.0.x"）
-          if [ -f "$JAVA_HOME_VAL/release" ]; then
-            grep '^JAVA_VERSION' "$JAVA_HOME_VAL/release" || true
-          else
-            echo "::warning::No release file at $JAVA_HOME_VAL/release — Bubblewrap may reject this JDK"
-          fi
-      - name: Decode keystore
-        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > /tmp/keystore.jks
-      - name: Verify keystore + secrets
-        run: |
-          echo "Keystore file size: $(stat -c %s /tmp/keystore.jks) bytes"
-          ls -la /tmp/keystore.jks
-          if [ -z "$KEYSTORE_PASS" ]; then
-            echo "::error::KEYSTORE_PASS secret is empty. Configure ANDROID_KEYSTORE_PASS at https://github.com/${{ github.repository }}/settings/secrets/actions"
-            exit 1
-          fi
-          if [ -z "$KEY_PASS" ]; then
-            echo "::error::KEY_PASS secret is empty. Configure ANDROID_KEY_PASS at https://github.com/${{ github.repository }}/settings/secrets/actions"
-            exit 1
-          fi
-          echo "✓ All keystore secrets are set"
-        env:
-          KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
-          KEY_PASS: ${{ secrets.ANDROID_KEY_PASS }}
-      - name: Build .apk
-        env:
-          KEYSTORE_FILE: /tmp/keystore.jks
-          KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
-          KEY_PASS: ${{ secrets.ANDROID_KEY_PASS }}
-          JAVA_HOME: ${{ env.JAVA_HOME }}
-        run: bash release/scripts/build-android.sh
-      - uses: actions/upload-artifact@v4
-        with:
-          name: morse-practice-android-apk
-          path: release/dist/*.apk
-
-  # 5. 收集产物 + 创建 Release
+  # 4. 收集产物 + 创建 Release
+  # 注：Android .apk 不在 CI 编（见 release/dev_doc/2026-06-25-local-android-build-guide.md）
+  # 推 tag 触发本 workflow → release job 跑出 .deb + .exe → 用户本地编 APK 后用
+  #     gh release upload vX.Y.Z release/dist/*.apk --clobber 追加到 release
+  # fail_on_unmatched_files: false 让 .apk 缺失时不报错
   release:
     name: Create GitHub Release
-    needs: [build-linux, build-windows, build-android]
+    needs: [build-linux, build-windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -212,4 +104,4 @@ jobs:
             release/dist/*.apk
           draft: false
           prerelease: ${{ contains(github.ref_name, '-rc') }}
-          fail_on_unmatched_files: true
+          fail_on_unmatched_files: false  # APK 由用户本地编后手动 upload

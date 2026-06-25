@@ -437,3 +437,63 @@ Node 生态下，CLI 工具用 `new URL(path)` 校验输入路径是个常见反
 - 接受本地路径的工具应该用 `path.resolve` + `fs.readFile` 而不是 `fetch` + `new URL`
 - 或者显式区分 `--url` 和 `--file` flag
 - 退而求其次：在脚本层把本地文件托管成 HTTP 端点
+
+### 2026-06-25 12:00 | 策略调整：Android 编排出 CI（决策记录）
+
+**症状（决策触发点）**
+
+Android CI 在连过 6 个 fix 之后，又卡在 Bubblewrap 1.24.1 + Node 20 生态的几个深层问题：
+
+- `init` 内部 `new URL(args.manifest)` 不接受本地文件路径
+- 1.24.1 init 内部硬要 `tools/` 或 `bin/` 在 SDK 根（现代 SDK 早没这俩）
+- `versionCode` 前导零 / licenses 缺失 / cmdline-tools 缺失 等隐性前置
+
+每次都要靠 git push tag + 5min Actions + 重试，**单轮 debug 周期 ~10 分钟**。6 轮下来 + 还要配合 PWA 部署到 CF Pages 才能让 Bubblewrap 抓得到 webManifestUrl。
+
+**决策**
+
+| 维度 | CI 编 Android | 本地编 Android |
+|------|---------------|----------------|
+| 单次构建时间 | ~5min | ~30s |
+| 失败重试成本 | git push + 5min | 直接重跑脚本 |
+| 网络依赖 | 强（CF Pages 可达） | 中（sdkmanager） |
+| 后续维护 | 每次 PWA 改动都要重新触发 | 一次性 |
+| 适合场景 | 高频次、多人协作 | 低频次、单机发布 |
+
+**结论：Android 移出 CI**。理由：
+1. 用户是单机发布（不是团队 / 商业产品），频次低（每数月一次）
+2. CI 修复要花多轮，每次 10 分钟 × 6 轮 = 1 小时
+3. 本地一旦跑通，**改 PWA 重新打包只要 30 秒**
+4. CI 永远做不稳定的部分（lock 文件、依赖版本、网络）
+
+**新流程**
+
+```bash
+# 用户：本地编 APK
+bash release/scripts/build-android.sh
+# → release/dist/morse-practice-X.Y.Z.apk
+
+# 用户：推 tag 触发 CI（只编 .deb + .exe）
+git tag vX.Y.Z
+git push origin vX.Y.Z
+# → CI 5min 内出 .deb + .exe + 创建 release
+
+# 用户：把本地 APK 上传到 release
+gh release upload vX.Y.Z release/dist/*.apk --clobber
+```
+
+**CI 改动**（commit `<待 push>`）：
+- 删 `build-android` job（5 个 step 整段移除）
+- `release` job 的 `needs` 去掉 build-android
+- `files` 仍列 `*.apk`，但 `fail_on_unmatched_files: false` 容忍缺失
+- 这样：如果有人想恢复 CI 编 APK，把 build-android job 还原 + 改 `true` 即可
+
+**commit** `<待 push>` —— 见 `2026-06-25-multi-platform-release-continuation.md` 进度表
+
+**给下一位 agent 的指引**
+
+详见 `2026-06-25-local-android-build-guide.md`：
+- 列了所有 6 轮 CI debug 已经验证过的 fix（**不需要重做**）
+- 给出本地环境清单（JDK 17、cmdline-tools、licenses、tools symlink、我的kEY 凭据）
+- 给出完整 build 步骤 + 验证步骤 + 失败排错表
+- 目标是：下一位 agent 拿到本指南后，能在 30 分钟内本地出第一个 APK

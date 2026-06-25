@@ -62,10 +62,13 @@ kill "$HTTP_PID" 2>/dev/null || true
 wait "$HTTP_PID" 2>/dev/null || true
 
 echo "→ Building APK..."
+# --skipPwaValidation: init 阶段已下载 web manifest + 验证 icon,build 阶段跳过避免
+# "Project is out of date" 重新走 update → 拖时间 + 失败风险
 bubblewrap build \
   --keystore="$TMP_DIR/keystore.jks" \
   --keystorePassword="$KEYSTORE_PASS" \
-  --keyPassword="$KEY_PASS"
+  --keyPassword="$KEY_PASS" \
+  --skipPwaValidation
 
 # 5. 移动 apk 到 dist
 APK_SRC=$(find "$TMP_DIR" -name "app-release-signed.apk" -type f | head -1)

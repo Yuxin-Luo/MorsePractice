@@ -7,6 +7,7 @@
 > - 计划：`2026-06-25-multi-platform-release-plan.md`
 > - **CI Debug 日志**：`2026-06-25-ci-debug-log.md` ← **部署踩坑实录，活文档**
 > - 人工清单：`2026-06-25-action-checklist.md`
+> - **本地 Android 编译指南**：`2026-06-25-local-android-build-guide.md` ← **下一位 agent 接手**
 
 ---
 
@@ -46,7 +47,25 @@
 |------|------|------|
 | Linux | `release/dist/morse-practice_0.1.0_amd64.deb` | 670 KB |
 | Windows | `release/dist/Morse-Practice-0.1.0.exe` | 7.8 MB |
-| Android | — | CI only |
+| Android | — | **本地构建**（详见 `local-android-build-guide.md`） |
+
+### ⚙️ 策略调整（2026-06-25 12:00）
+
+**Android 编排出 CI**——原因：CI 上 Bubblewrap 1.24.1 + 现代 Android SDK 有 6 轮不兼容坑
+（heredoc / licenses / cmdline-tools / legacy tools-bin / versionCode 前导零 / Invalid URL），
+每次 PWA 改动还要 CF Pages 配合部署，**性价比太低**。
+
+新分工：
+- **CI**（稳定）：`.deb` + `.exe` + 自动 changelog + 创建 release
+- **本地**（一次性）：`bash release/scripts/build-android.sh` 跑出 `.apk`
+- **手动 upload**：`gh release upload vX.Y.Z release/dist/*.apk --clobber`
+
+**commit 记录**：
+- `42e4ce6` 修 build-andid.sh 适配本地（含 HTTP server 修 "Invalid URL"）
+- `<新 commit>` 删 workflow 的 build-android job，release job 的 APK 改 `fail_on_unmatched_files: false`
+
+**注意**：CI 改完后，**3 个 GitHub Secrets（ANDROID_KEYSTORE_*）暂时用不上了**，
+可以不配置或保留以备未来恢复 CI 编 APK。
 
 ---
 
