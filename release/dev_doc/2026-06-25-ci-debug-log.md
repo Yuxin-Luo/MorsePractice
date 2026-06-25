@@ -1,0 +1,313 @@
+# CI 部署 Debug 日志（2026-06-25）
+
+> 本文档记录把 `2026-06-25-multi-platform-release-plan.md` 推到 GitHub Actions
+> 跑 tag-triggered 构建时**遇到的真实坑 + 根因 + 修复**。
+>
+> 配套文档：
+> - 设计稿：`2026-06-25-multi-platform-release-design.md`
+> - 计划：`2026-06-25-multi-platform-release-plan.md`
+> - 执行日志：`2026-06-25-multi-platform-release-execution-log.md`
+> - 进展/待办：`2026-06-25-multi-platform-release-continuation.md`
+> - 人工清单：`2026-06-25-action-checklist.md`
+>
+> **本文件是「活文档」**——后续任何 debug / 部署新发现都要追加在 `## 增量记录`
+> 段尾，不要改写历史（保留「症状 → 根因 → 修复 → commit」的可追溯性）。
+
+---
+
+## 🧭 总览
+
+| 阶段 | 状态 |
+|------|------|
+| 本地构建（Linux/Windows） | ✅ 通过（670K .deb / 7.8M .exe） |
+| 本地构建（Android） | ❌ 跳过（sdkmanager 网络问题） |
+| CI Linux/Windows job | ✅ 通过 |
+| CI Android job | ⏳ **本日志主要记录**（连续 5 次失败，逐步定位） |
+| 测试套件 | ✅ 174/174 |
+
+5 次 Android 失败的 debug 链：
+
+```
+失败 1 → heredoc 未展开       →  e956789  (printf + 显式 assert)
+失败 2 → androidSdk 校验失败   →  16202d1  (自动建 licenses/)
+失败 3 → cmdline-tools 缺失   →  9f44c68  (+cmdline-tools;latest)
+失败 4 → legacy tools/ bin/ 缺 →  ab8ed62  (symlink tools→cmdline-tools/latest)
+失败 5 → versionCode 前导零   →  ec8c4b0  (改用 node 算)
+```
+
+---
+
+## 失败 #1：Heredoc 变量未展开（e956789）
+
+### 症状
+
+```
+Run bash release/scripts/build-android.sh
+...
+Do you want Bubblewrap to install the JDK (recommended)?
+Error: Process completed with exit code 130.
+```
+
+（exit 130 = SIGINT，Bubblewrap 在 TTY 缺失时挂掉）
+
+### 根因
+
+工作流里 `~/.bubblewrap/config.json` 用 heredoc 写：
+
+```bash
+cat > ~/.bubblewrap/config.json <<EOF
+{"jdkPath":"$JAVA_HOME","androidSdkPath":"$ANDROID_HOME"}
+EOF
+```
+
+YAML 解析器**已经吃掉了** `$JAVA_HOME` / `$ANDROID_HOME` 的 `$`，heredoc 看到的是空字符串。文件最终内容是：
+
+```json
+{"jdkPath":"","androidSdkPath":""}
+```
+
+Bubblewrap 读到空路径 → fall through 到交互 prompt → 非 TTY stdin → 挂。
+
+### 修复（commit `e956789`）
+
+用 `printf` + 单引号 + 显式 assert：
+
+```bash
+mkdir -p ~/.bubblewrap
+JAVA_HOME_VAL="${JAVA_HOME:?JAVA_HOME must be set}"
+ANDROID_HOME_VAL="${ANDROID_HOME:?ANDROID_HOME must be set}"
+printf '{"jdkPath":"%s","androidSdkPath":"%s"}\n' \
+  "$JAVA_HOME_VAL" "$ANDROID_HOME_VAL" > ~/.bubblewrap/config.json
+# 加 release file 校验,提前发现 JDK 版本不匹配
+if [ -f "$JAVA_HOME_VAL/release" ]; then
+  grep '^JAVA_VERSION' "$JAVA_HOME_VAL/release" || true
+fi
+```
+
+教训：**shell 变量 + heredoc + YAML 三角关系不要混用**，`printf` 是最稳的。
+
+---
+
+## 失败 #2：androidSdk 校验失败 —— licenses/ 缺失（16202d1）
+
+### 症状
+
+`Bubblewrap config.json` 写好了（用户日志里没贴 cat 输出，但 printf 修复必然成功），
+但 `bubblewrap build` 报：
+
+```
+cli ERROR The provided androidSdk isn't correct.
+Error: Process completed with exit code 1.
+```
+
+### 第一次诊断（错）
+
+以为 `android-actions/setup-android@v3` 没装 SDK。验证脚本的 `ls -la` 输出：
+
+```
+-rw-r--r--  1 runner runner     0 Jun 25 05:35 repositories.cfg
+```
+
+`ANDROID_HOME` 下**只有 1 个 0 字节文件**！
+
+### 第一次错误修复（`16202d1`）
+
+在 Pre-configure 之前加一段，**主动建 `licenses/` + 写标准 accepted hash**：
+
+```bash
+if [ ! -d "$ANDROID_HOME/licenses" ]; then
+  mkdir -p "$ANDROID_HOME/licenses"
+  printf '\n24333f8a63b6825ea9c5514f83c2829b004d1fee\n504667f4c0de7af1a06de9f4b1727b84351f2910\n' \
+    > "$ANDROID_HOME/licenses/android-sdk-license"
+  printf '\n84831b9409646a918e30573bab4c9c91346d8abd' \
+    > "$ANDROID_HOME/licenses/android-sdk-preview-license"
+fi
+```
+
+→ **没修好**。用户反馈 `licenses/` 已存在但 Bubblewrap 仍拒收。
+
+教训：**不要基于「猜测」写修复**——只看到 0 字节的 `repositories.cfg` 就以为 SDK 没装，
+其实 `android-actions/setup-android@v3` 默认不创建子目录内容，要看 verify step 的
+for-loop 输出（用户下次贴回来的 ✓/✗ 标记）才能知道真相。
+
+---
+
+## 失败 #3：androidSdk 校验失败 —— cmdline-tools 缺失（9f44c68）
+
+### 症状（用户贴的 verify 输出）
+
+```
+✓ /usr/local/lib/android/sdk/platform-tools/ exists
+✓ /usr/local/lib/android/sdk/platforms/ exists
+✓ /usr/local/lib/android/sdk/build-tools/ exists
+✓ /usr/local/lib/android/sdk/licenses/ exists
+```
+
+4 个子目录都在！**而且 licenses/ 里已经有 7 个 license 文件了**（sdkmanager --licenses
+跑通了）。但 Bubblewrap 仍报 "androidSdk isn't correct"。
+
+### 根因
+
+packages 列表是 `'platform-tools platforms;android-34 build-tools;34.0.0'`——
+**漏了 `cmdline-tools;latest`**。Bubblewrap 1.24.x 内部需要 `cmdline-tools/latest/bin/sdkmanager`
+来更新项目（加新依赖、签名验证等）。
+
+`sdkmanager 12.0` 输出还顺便暴露了一个二次安装的诡异现象：
+
+```
+Warning: Observed package id 'cmdline-tools;latest' in inconsistent location
+'/usr/local/lib/android/sdk/cmdline-tools/latest-2'
+(Expected '/usr/local/lib/android/sdk/cmdline-tools/latest')
+```
+
+（这个 warning 在后来的修复里被 ignore——`cmdline-tools/latest/` 是真实位置，`latest-2/`
+是某次重试的残留，sdkmanager 自己能找到 sdkmanager 二进制即可。）
+
+### 修复（commit `9f44c68`）
+
+```yaml
+packages: 'cmdline-tools;latest platform-tools platforms;android-34 build-tools;34.0.0'
+```
+
+verify step 同步加：
+- 校验 `cmdline-tools/latest/` 在
+- 校验 `sdkmanager --version` 跑得通
+- 显式 `yes | sdkmanager --licenses` 兜底（万一 licenses 缺）
+
+→ **没修好**。Bubblewrap 仍报 "androidSdk isn't correct"。
+
+---
+
+## 失败 #4：androidSdk 校验失败 —— legacy `tools/` 缺失（ab8ed62）
+
+### 症状
+
+环境变量、JDK、SDK、licenses、cmdline-tools 全齐了，Bubblewrap 仍报同样错误。
+
+### 根因（**确认了源码**）
+
+直接 fetch 了 bubblewrap-cli v1.24.1 源码 `packages/core/src/lib/androidSdk/AndroidSdkTools.ts`：
+
+```typescript
+static async validatePath(sdkPath: string): Promise<Result<string, ValidatePathError>> {
+  const toolsPath = path.join(sdkPath, 'tools');
+  const binPath = path.join(sdkPath, 'bin');
+  if (!fs.existsSync(sdkPath) || (!fs.existsSync(toolsPath)) && !fs.existsSync(binPath)) {
+    return Result.error(
+        new ValidatePathError('The provided androidSdk isn\'t correct.', 'PathIsNotCorrect'));
+  }
+  return Result.ok(sdkPath);
+}
+```
+
+**这是个 hardcoded legacy check**——注释明说：
+
+> Older versions of the the Android SDK add the initial files inside the
+> `tools` folder. Version `6858069` and above add it directly to the
+> `bin` folder.
+
+这是给 **pre-2022 SDK** 写的（`cmdline-tools` 拆分前的 layout）。现代 SDK 把工具
+全放在 `cmdline-tools/latest/bin/sdkmanager`，**SDK 根目录既没 `tools/` 也没 `bin/`**。
+
+这是个 **Bubblewrap bug**——没适配现代 SDK layout。我们用一个 symlink 绕过：
+
+### 修复（commit `ab8ed62`）
+
+```bash
+if [ ! -e "$ANDROID_HOME/tools" ] && [ ! -e "$ANDROID_HOME/bin" ]; then
+  echo "→ Creating $ANDROID_HOME/tools → cmdline-tools/latest symlink (Bubblewrap compat)"
+  ln -sfn "$ANDROID_HOME/cmdline-tools/latest" "$ANDROID_HOME/tools"
+  ls -la "$ANDROID_HOME/tools/bin/sdkmanager"
+fi
+```
+
+为什么 symlink 安全：
+1. Bubblewrap 的 `validatePath` 只检查 `tools/` 存在性，**不读内容** → symlink 满足
+2. Bubblewrap 找 sdkmanager 是走 `cmdline-tools/latest/bin/sdkmanager`，**不走 tools/** → symlink 不影响
+3. 不需要重装 SDK、不改 Bubblewrap 版本
+
+→ **Bubblewrap SDK 校验通过**！
+
+教训：**先看 5xx 错误的源码再写修复**——比看 stackoverflow / issue 准确 100 倍。
+fetch 一次源码 5 秒，省下盲目尝试 30 分钟。
+
+---
+
+## 失败 #5：versionCode 前导零（ec8c4b0）
+
+### 症状
+
+```
+cli ERROR Unexpected number in JSON at position 554
+Error: Process completed with exit code 1.
+```
+
+### 根因
+
+`release/scripts/build-android.sh` 里：
+
+```bash
+VERSION_CODE=$(echo "$VERSION" | awk -F. '{ printf "%d%02d%02d", $1, $2, $3 }')
+```
+
+对 `VERSION=0.1.0`：`$1=0, $2=1, $3=0` → 拼接 = `"0" + "01" + "00"` = **`"00100"`**
+
+sed 处理后的 `twa-manifest.json` 出现：
+
+```json
+"versionCode": 00100
+```
+
+**JSON 数字字面量不允许前导零**（spec: RFC 8259 §6）→ `JSON.parse()` 抛错 → 报位置 554
+（恰好是 `versionCode` 行的中间）。
+
+### 验证
+
+```bash
+$ python3 -m json.tool < <(sed -e 's/"versionCode":.*/"versionCode": 00100/' twa-manifest.json)
+json.decoder.JSONDecodeError: Expecting ',' delimiter: line 17 column 19 (char 554)
+```
+
+→ 完全对上。
+
+### 修复（commit `ec8c4b0`）
+
+用 node 算（已装），公式 `a*10000 + b*100 + c + 10000` 永远无前导零：
+
+```bash
+VERSION_CODE=$(node -p "const [a,b,c]='$VERSION'.split('.').map(Number); a*10000 + b*100 + c + 10000")
+```
+
+| VERSION | VERSION_CODE |
+|---------|--------------|
+| 0.1.0   | 10100        |
+| 0.2.0   | 10200        |
+| 0.2.1   | 10201        |
+| 1.0.0   | 20000        |
+| 1.5.3   | 20503        |
+
+教训：**字符串拼接算数字必踩雷**。任何算 ID / 数值 / 哈希的场合，能用 printf / node
+/ python 就别用 awk + 格式串。
+
+---
+
+## 🛟 总教训（这次 debug 链的元经验）
+
+1. **shell + heredoc + YAML 三角不要混**——`printf` 是更稳的选择
+2. **别基于「猜测的根因」写 fix**——一次只验证一个假设，否则可能 fix A 把 A 修了但
+   暴露 B，浪费时间
+3. **第三方工具的报错先 fetch 源码看**——5xx 错误信息可能误导，源码不会骗人
+4. **JSON 数字字面量禁止前导零**——`00100` ✗ `100` ✓
+5. **现代 SDK 工具链（cmdline-tools 9.0+）和 Bubblewrap 1.24.x 不完全兼容**——任何依赖
+   Bubblewrap 的项目都可能踩 `tools/bin` 这个坑，可考虑升级到 Bubblewrap 2.x
+6. **CI verify step 多打 `ls -la` 和 `✓/✗` 标记**——比 logcat / stack trace 更直观
+7. **linux/Windows 一次跑通不代表 Android 也能跑通**——平台差异要分开验证
+
+---
+
+## 📝 增量记录（活段，从这里往下追加）
+
+> 格式：每条新发现用 `### YYYY-MM-DD HH:MM | <一句话症状>` 开头，
+> 然后 4 段：**症状** / **根因** / **修复** / **commit**
+
+<!-- 后续 debug / 部署记录追加在这下面，不要改写上面 -->

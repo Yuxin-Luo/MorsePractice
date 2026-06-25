@@ -5,6 +5,8 @@
 > - 执行日志：`2026-06-25-multi-platform-release-execution-log.md`
 > - 设计稿：`2026-06-25-multi-platform-release-design.md`
 > - 计划：`2026-06-25-multi-platform-release-plan.md`
+> - **CI Debug 日志**：`2026-06-25-ci-debug-log.md` ← **部署踩坑实录，活文档**
+> - 人工清单：`2026-06-25-action-checklist.md`
 
 ---
 
