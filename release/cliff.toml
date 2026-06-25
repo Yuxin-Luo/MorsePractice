@@ -1,0 +1,110 @@
+# git-cliff ~> 1.4 configuration
+# https://git-cliff.org/
+
+[changelog]
+header = """
+# Changelog\n
+All notable changes to this project will be documented in this file.\n
+"""
+body = """
+{% if version -%}
+    ## [{{ version }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else -%}
+    ## [Unreleased]
+{% endif -%}
+{% for group, commits in commits | filter(attribute="merge_commit", value=false) | group_by(attribute="group") -%}
+    ### {{ group | upper_first }}
+    {% for commit in commits | filter(attribute="merge_commit", value=false) | sort(attribute="message") -%}
+        - {{ commit.message | split(pat="\n") | first | trim | upper_first }}
+    {% endfor -%}
+{% endfor %}\n
+"""
+trim = true
+postprocessors = []
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+filter_commits = false
+topo_order = false
+sort_commits = "oldest"
+
+[commit_parsers.conv]
+message = "^(?P<type>\\w+)(?:\\((?P<scope>[^)]+)\\))?:\\s(?P<subject>.+)$"
+body = ".*"
+
+[commit_parsers.squash]
+message = "^squash!\\s(?P<type>\\w+)(?:\\((?P<scope>[^)]+)\\))?:\\s(?P<subject>.+)$"
+body = ".*"
+
+[commit_parsers.merge]
+message = "^Merge\\sbranch\\s'([^']+)'\\sinto\\s.+$"
+body = ".*"
+group = "Miscellaneous"
+
+[commit_parsers.revert]
+message = "^revert:\\s(?P<type>\\w+)(?:\\((?P<scope>[^)]+)\\))?:\\s(?P<subject>.+)$"
+body = ".*"
+group = "Reverted"
+
+[groups]
+# 按 Conventional Commits 类型分组
+commits.title = "Features"
+commits.inv = "feat"
+commits.field = "type"
+commits.pattern = "^feat$"
+
+fix.title = "Bug Fixes"
+fix.inv = "fix"
+fix.field = "type"
+fix.pattern = "^fix$"
+
+docs.title = "Documentation"
+docs.inv = "docs"
+docs.field = "type"
+docs.pattern = "^docs$"
+
+perf.title = "Performance"
+perf.inv = "perf"
+perf.field = "type"
+perf.pattern = "^perf$"
+
+refactor.title = "Refactor"
+refactor.inv = "refactor"
+refactor.field = "type"
+refactor.pattern = "^refactor$"
+
+style.title = "Styling"
+style.inv = "style"
+style.field = "type"
+style.pattern = "^style$"
+
+test.title = "Testing"
+test.inv = "test"
+test.field = "type"
+test.pattern = "^test$"
+
+ci.title = "Continuous Integration"
+ci.inv = "ci"
+ci.field = "type"
+ci.pattern = "^ci$"
+
+build.title = "Build System"
+build.inv = "build"
+build.field = "type"
+build.pattern = "^build$"
+
+chore.title = "Chores"
+chore.inv = "chore"
+chore.field = "type"
+chore.pattern = "^chore$"
+
+revert.title = "Reverted"
+revert.inv = "revert"
+revert.field = "type"
+revert.pattern = "^revert$"
+
+misc.title = "Miscellaneous"
+misc.inv = ".*"
+misc.field = "type"
+misc.pattern = ".*"
