@@ -1,8 +1,17 @@
 name: Release
 
+# ============================================================================
+# ⚠️  本 workflow 已禁用 (2026-06-25)
+# 原因:用户决定全手动发布 —— 本地编 3 平台 → gh release create → 完成
+# 恢复方法:取消下方 trigger 的注释,删掉此注释块即可
+# ============================================================================
+#
+# on:
+#   push:
+#     tags: ['v*.*.*']
+
 on:
-  push:
-    tags: ['v*.*.*']
+  workflow_dispatch:  # 保留手动触发入口,便于将来用 Actions 跑单 job
 
 permissions:
   contents: write
@@ -68,42 +77,40 @@ jobs:
           name: morse-practice-windows-exe
           path: release/dist/*.exe
 
-  # 4. 收集产物 + 创建 Release
-  # 注：Android .apk 不在 CI 编（见 release/dev_doc/2026-06-25-local-android-build-guide.md）
-  # 推 tag 触发本 workflow → release job 跑出 .deb + .exe → 用户本地编 APK 后用
-  #     gh release upload vX.Y.Z release/dist/*.apk --clobber 追加到 release
-  # fail_on_unmatched_files: false 让 .apk 缺失时不报错
-  release:
-    name: Create GitHub Release
-    needs: [build-linux, build-windows]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: release/dist/
-          pattern: morse-practice-*
-          merge-multiple: true
-      - name: Generate changelog
-        id: cliff
-        # 注:仓库是 orhun/git-cliff-action (orhun 的 GitHub 用户名没有 p)
-        # npm 上 orhunp 是别名,这里用 GitHub 路径
-        uses: orhun/git-cliff-action@v3
-        with:
-          config: release/cliff.toml
-          args: --verbose
-      - name: Create release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: ${{ github.ref_name }}
-          body: ${{ steps.cliff.outputs.content }}
-          files: |
-            release/dist/*.deb
-            release/dist/*.exe
-            release/dist/*.apk
-          draft: false
-          prerelease: ${{ contains(github.ref_name, '-rc') }}
-          fail_on_unmatched_files: false  # APK 由用户本地编后手动 upload
+  # ⚠️ release job 已删除 —— 全手动模式:
+  #   本地 3 平台编译完 → gh release create vX.Y.Z release/dist/*.{deb,exe,apk}
+  #   详见 release/dev_doc/2026-06-25-action-checklist.md (新版,纯手动流程)
+
+  # ↓↓↓ 以下为备份的 release job,恢复时取消注释 + 启用 trigger + 给 build-android 装回来
+  # release:
+  #   name: Create GitHub Release
+  #   needs: [build-linux, build-windows]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 0
+  #     - name: Download all artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         path: release/dist/
+  #         pattern: morse-practice-*
+  #         merge-multiple: true
+  #     - name: Generate changelog
+  #       id: cliff
+  #       uses: orhun/git-cliff-action@v3
+  #       with:
+  #         config: release/cliff.toml
+  #         args: --verbose
+  #     - name: Create release
+  #       uses: softprops/action-gh-release@v2
+  #       with:
+  #         name: ${{ github.ref_name }}
+  #         body: ${{ steps.cliff.outputs.content }}
+  #         files: |
+  #           release/dist/*.deb
+  #           release/dist/*.exe
+  #           release/dist/*.apk
+  #         draft: false
+  #         prerelease: ${{ contains(github.ref_name, '-rc') }}
+  #         fail_on_unmatched_files: false

@@ -545,3 +545,71 @@ uses: orhun/git-cliff-action@v3
 涉及到第三方 action 时：
 - 先 `curl -sI https://github.com/<user>/<repo>` 验证 200 再写
 - 别直接抄别人 workflow 文件里的名字（可能他们的 user 名也写错了）
+
+### 2026-06-25 13:00 | 策略再调整：彻底废弃 CI，全手动发布（决策记录）
+
+**症状（决策触发点）**
+
+刚把 CI 的 git-cliff 路径修好，准备推 tag 试一下完整的 release 流程。
+但用户主动决定：**别再在 CI 上折腾了，全手动**。
+
+**理由**
+
+1. **CI 反馈循环太慢**——每次 push tag → 5min → 看 log → 修 → 再 5min
+2. **本机就是发布机**——单用户、单环境、不需要 CI 隔离
+3. **CI 维护成本不收敛**——已经踩了 8 个坑（heredoc / licenses / cmdline-tools /
+   legacy tools-bin / versionCode / Invalid URL / init-before-build / git-cliff 路径），
+   每次加新东西都可能踩新坑
+4. **本地 5s 反馈 vs CI 5min**——改 build 脚本后立刻能跑，不必 push 等 CI
+
+**对比**
+
+| 维度 | CI 自动 | 全手动 |
+|------|---------|--------|
+| 单次发布耗时 | 5-10 min（含 CI 等待） | 1-2 min |
+| 失败重试 | git push + 5min | 直接重跑脚本 |
+| 维护 | 跟 GitHub Actions / Bubblewrap / 第三方 action 升级 | 跟本机工具链 |
+| 适合 | 团队 / 商业 / 高频次 | 个人 / 低频次 / 单一发布机 |
+
+**结论：彻底废弃 CI 的 release 部分**。
+
+**新流程**
+
+```bash
+# 1 次性环境(阶段 1,后续可跳)
+#   apt install + Android SDK + Bubblewrap + gh
+
+# 每次发布(2 min)
+bash release/scripts/build-linux.sh
+bash release/scripts/build-windows.sh
+bash release/scripts/build-android.sh
+gh release create vX.Y.Z release/dist/*.{deb,exe,apk}
+```
+
+**CI 改动**（commit `<待 push>`）：
+- `.github/workflows/release.yml`：
+  - 注释掉 `on: push: tags:` trigger
+  - 删 `release` job（备份在文件底部注释里）
+  - 保留 `workflow_dispatch` 作为手动入口
+
+**commit** `<待 push>`
+
+**给下一位 agent 的指引**
+
+- 详细本地环境 + 编译步骤：`2026-06-25-local-android-build-guide.md`
+- 端到端用户流程：`2026-06-25-action-checklist.md`（v2，纯手动）
+- 恢复 CI（万一以后要）：取消上面 2 处注释 + 重新加 `build-android` job
+
+**教训（更深一层）**
+
+不是所有项目都适合 CI。CI 的价值在于「把重复操作自动化 + 跨环境验证」，
+但本项目：
+- 发布频次低（每数月一次）→ 重复操作收益小
+- 单发布机 + 单目标环境 → 跨环境验证收益小
+- 工具链外部依赖多（Bubblewrap / Android SDK / Go / JDK）→ 调试成本高
+
+**简单粗暴的判断方法**：
+- 团队 / 商业项目 / 高频发布 → CI 必备
+- 个人项目 / 低频 / 单一发布机 → 本地脚本 + 文档就够
+
+**DevOps 的真谛是「合适」，不是「先进」**。

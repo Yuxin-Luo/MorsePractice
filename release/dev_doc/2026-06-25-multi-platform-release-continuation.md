@@ -67,6 +67,45 @@
 **注意**：CI 改完后，**3 个 GitHub Secrets（ANDROID_KEYSTORE_*）暂时用不上了**，
 可以不配置或保留以备未来恢复 CI 编 APK。
 
+### 🛑 二次调整（2026-06-25 13:00）——**全手动发布模式**
+
+**决定**：连 CI 也不用了。`git tag` 推上去只是占位（不会触发 workflow），
+所有产物本地编译 + `gh release create` 一次性创建 + 上传。
+
+**理由**：
+- CI 在 release 阶段又踩新坑（`orhunp/git-cliff-action` 拼错用户名 → repository not found）
+- 用户在 CI 上没有调试 / 重试优势，5min 一次反馈循环 vs 本地 5s
+- **本机就是发布机**——没有跨平台 / 跨人协作需求，CI 价值低
+
+**新流程**（详见 `2026-06-25-action-checklist.md` v2）：
+
+```bash
+# 一次性环境准备(阶段 1,第二次起跳)
+sudo apt install openjdk-17-jdk ... + Android SDK + Bubblewrap + gh
+
+# 每次发布
+bash release/scripts/build-linux.sh      # 5s
+bash release/scripts/build-windows.sh    # 30s
+bash release/scripts/build-android.sh    # 30s
+gh release create vX.Y.Z release/dist/*.{deb,exe,apk}
+```
+
+**总耗时 5-10 分钟**(环境准备好后)。
+
+**workflow 状态**：
+- 注释掉 `on: push: tags:` 触发器
+- 删 `release` job（备份在文件注释里）
+- 保留 `workflow_dispatch` 入口，便于将来用 Actions 跑单 job
+
+**不再需要的事**：
+- ~~配置 `ANDROID_KEYSTORE_*` GitHub Secrets~~
+- ~~推 tag 后等 Actions 跑 5min~~
+- ~~任何 CI debug 工作~~
+
+**commit 记录**：
+- `3a2d7bf` 改 orhun/git-cliff-action 路径
+- `<新 commit>` 禁用 workflow + 重写人工清单为全手动模式
+
 ---
 
 ## ⏳ 用户操作清单（按顺序执行）
