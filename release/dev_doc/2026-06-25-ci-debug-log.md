@@ -613,3 +613,60 @@ gh release create vX.Y.Z release/dist/*.{deb,exe,apk}
 - 个人项目 / 低频 / 单一发布机 → 本地脚本 + 文档就够
 
 **DevOps 的真谛是「合适」，不是「先进」**。
+
+### 2026-06-25 18:30 | Bubblewrap init 在非 TTY 下卡 20 个交互式 prompt（坑 #10）
+
+**症状**
+
+```
+$ bash release/scripts/build-android.sh
+→ Initializing Bubblewrap project...
+? Domain: (127.0.0.1:8765)
+? URL path: (/)
+? Name: (morsepractice)
+...
+```
+
+在 Claude Code Bash tool / CI 等非 TTY 环境里，inquirer 直接 EOF 抛错：
+```
+node:internal/readline/interface:564
+    throw new ERR_USE_AFTER_CLOSE('readline');
+```
+
+**根因**
+
+- Bubblewrap 1.24.1 `init --manifest=<URL>` 设计上**强制交互式**填 ~20 个 prompt（即使 manifest 已含完整字段）
+- 源码 `init.ts::confirmTwaConfig` 调 `prompt.promptInput(...)` **总是**问
+- **没有 `--non-interactive` flag**（已验证源码 `InitArgs` 接口）
+- 默认值是从 manifest URL 提取的 host（如 `127.0.0.1:8765`），被 `validateHost` 拒绝 → Enter 接受也错
+
+**修复（双管齐下）**
+
+1. **新增 `release/scripts/init-android.sh`** —— 让用户在**真 TTY**（自己电脑的终端）跑一次 init，缓存到 `release/.android-project/` 目录（不进 git）
+2. **改 `release/scripts/build-android.sh`** —— 检测 `.bubblewrap/checksum.json` 存在则跳过 init，**直接 `bubblewrap update`**（manifest 内容变更）+ `bubblewrap build`（非交互）
+
+新流程：
+
+```bash
+# 一次性（在真 TTY 跑 ~30s,20 个 prompt 直接回车）
+bash release/scripts/init-android.sh
+
+# 之后每次（30s,全自动）
+bash release/scripts/build-android.sh
+```
+
+**commit**
+
+`<待 push>` —— 新增 `init-android.sh`、改 `build-android.sh`、新增 `lib/bw_init.py`（CI/未来的 fallback，pattern 匹配还有 bug 留待修复）
+
+**待观察**
+
+- 用户的 `release/.android-project/` 应该加进 `.gitignore`（项目元数据，per-machine）
+- 如果 init 阶段 keystore 填错，build 阶段用真 keystore 覆盖（已验证 `build --keystore=...` 覆盖 init 阶段设置）
+- `bw_init.py` wrapper（pexpect 方案）保留作未来 CI 用，当前 pattern 匹配有 bug（Domain/URL path 顺序匹配错误），需要修
+
+**教训（更深一层）**
+
+- 第三方 CLI 的"必须交互式"设计是**反自动化**的——CI/local script 都会卡
+- 当 wrapper（pexpect / expect）不好写时，**拆 init 为独立步骤**是更稳妥的方案
+- 用户偏好"全盘接手"+"本地手动"——init 跑一次不像 build 每次跑，拆开是合理设计

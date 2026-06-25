@@ -31,6 +31,9 @@ marketing/
 *.keystore
 *.keystore.b64
 
+# Bubblewrap TWA project (per-machine, 由 init-android.sh 生成)
+release/.android-project/
+
 # Sensitive keys & credentials (NEVER commit)
 mykEY/*
 # 但 README 是公开文档,例外放行
