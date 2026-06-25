@@ -32,4 +32,6 @@ marketing/
 *.keystore.b64
 
 # Sensitive keys & credentials (NEVER commit)
-mykEY/
+mykEY/*
+# 但 README 是公开文档,例外放行
+!mykEY/README.md

@@ -1,0 +1,137 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  # 1. 共享：构建 web 资源（上传给下游 4 个 job）
+  build-assets:
+    name: Build web assets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build web assets
+        run: bash release/scripts/build-assets.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-assets
+          path: release/dist/web/
+          retention-days: 1
+
+  # 2. Linux .deb
+  build-linux:
+    name: Build Linux .deb
+    needs: build-assets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-assets
+          path: release/dist/web
+      - name: Build .deb
+        run: bash release/scripts/build-linux.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: morse-practice-linux-deb
+          path: release/dist/*.deb
+
+  # 3. Windows .exe
+  build-windows:
+    name: Build Windows .exe
+    needs: build-assets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-assets
+          path: release/dist/web
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Build .exe
+        run: bash release/scripts/build-windows.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: morse-practice-windows-exe
+          path: release/dist/*.exe
+
+  # 4. Android .apk
+  build-android:
+    name: Build Android .apk
+    needs: build-assets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-assets
+          path: release/dist/web
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Bubblewrap CLI
+        run: npm install -g @bubblewrap/cli
+      - uses: android-actions/setup-android@v3
+      - name: Decode keystore
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > /tmp/keystore.jks
+      - name: Build .apk
+        env:
+          KEYSTORE_FILE: /tmp/keystore.jks
+          KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASS }}
+          JAVA_HOME: ${{ env.JAVA_HOME }}
+        run: bash release/scripts/build-android.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: morse-practice-android-apk
+          path: release/dist/*.apk
+
+  # 5. 收集产物 + 创建 Release
+  release:
+    name: Create GitHub Release
+    needs: [build-linux, build-windows, build-android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release/dist/
+          pattern: morse-practice-*
+          merge-multiple: true
+      - name: Generate changelog
+        id: cliff
+        uses: orhunp/git-cliff-action@v3
+        with:
+          config: release/cliff.toml
+          args: --verbose
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          body: ${{ steps.cliff.outputs.content }}
+          files: |
+            release/dist/*.deb
+            release/dist/*.exe
+            release/dist/*.apk
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-rc') }}
+          fail_on_unmatched_files: true
