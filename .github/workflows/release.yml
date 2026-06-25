@@ -122,6 +122,17 @@ jobs:
           echo ""
           echo "=== Final licenses/ ==="
           ls -la "$ANDROID_HOME/licenses/" 2>/dev/null
+          echo ""
+          # ★★★ 关键修复 ★★★
+          # Bubblewrap 1.24.1 的 AndroidSdkTools.validatePath 校验:
+          #   if (!exists(sdkPath/tools) && !exists(sdkPath/bin)) → error
+          # 但现代 SDK 全部在 cmdline-tools/latest/ 下,既没 tools/ 也没 bin/。
+          # 用 symlink 让校验通过（不影响实际使用,sdkmanager 还是从 cmdline-tools/latest/ 调用）
+          if [ ! -e "$ANDROID_HOME/tools" ] && [ ! -e "$ANDROID_HOME/bin" ]; then
+            echo "→ Creating $ANDROID_HOME/tools → cmdline-tools/latest symlink (Bubblewrap compat)"
+            ln -sfn "$ANDROID_HOME/cmdline-tools/latest" "$ANDROID_HOME/tools"
+            ls -la "$ANDROID_HOME/tools/bin/sdkmanager"
+          fi
       - name: Pre-configure Bubblewrap (skip interactive JDK/SDK prompts)
         run: |
           set -e
