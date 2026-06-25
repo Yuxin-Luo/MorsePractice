@@ -21,7 +21,9 @@ if [ ! -d "$DIST/web" ]; then
 fi
 
 # 1. 更新 version + versionCode
-VERSION_CODE=$(echo "$VERSION" | awk -F. '{ printf "%d%02d%02d", $1, $2, $3 }')
+# 用 node 算 versionCode（awk 的 %02d 在 major=0 时会产生前导零,JSON 不合法）
+# 公式: a*10000 + b*100 + c + 10000,确保 0.1.0 = 10100, 0.2.0 = 10200, 1.0.0 = 20000
+VERSION_CODE=$(node -p "const [a,b,c]='$VERSION'.split('.').map(Number); a*10000 + b*100 + c + 10000")
 TEMP_MANIFEST="$TMP_DIR/twa-manifest.json"
 sed -e "s/\"appVersion\": \".*\"/\"appVersion\": \"$VERSION\"/" \
     -e "s/\"versionCode\": .*/\"versionCode\": $VERSION_CODE/" \
