@@ -90,34 +90,35 @@ jobs:
         run: npm install -g @bubblewrap/cli
       - uses: android-actions/setup-android@v3
         with:
-          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
-      - name: Verify & fix Android SDK structure (Bubblewrap hard-requires licenses/)
+          packages: 'cmdline-tools;latest platform-tools platforms;android-34 build-tools;34.0.0'
+      - name: Verify Android SDK structure (Bubblewrap hard-requires cmdline-tools/latest)
         run: |
           set -e
           echo "=== ANDROID_HOME: $ANDROID_HOME ==="
           ls -la "$ANDROID_HOME"
           echo ""
-          # Bubblewrap 校验这 4 个子目录必须都存在
-          for d in platform-tools platforms build-tools licenses; do
+          # Bubblewrap 1.24.x 校验: cmdline-tools/latest/, platform-tools/, platforms/, build-tools/, licenses/
+          for d in cmdline-tools/latest platform-tools platforms build-tools licenses; do
             if [ -d "$ANDROID_HOME/$d" ]; then
               echo "✓ $ANDROID_HOME/$d/ exists"
             else
               echo "✗ $ANDROID_HOME/$d/ MISSING"
             fi
           done
-          # android-actions/setup-android@v3 偶尔不创建 licenses/，
-          # 用 sdkmanager --licenses 的标准 accepted-hashes 补一份
-          if [ ! -d "$ANDROID_HOME/licenses" ]; then
+          # 验证 sdkmanager 可用（Bubblewrap 调它来更新项目）
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ -x "$SDKMANAGER" ]; then
             echo ""
-            echo "→ Creating $ANDROID_HOME/licenses/ with standard accepted-license hashes..."
-            mkdir -p "$ANDROID_HOME/licenses"
-            # 这些 hash 是 'sdkmanager --licenses' 写入的官方 accepted 标记
-            printf '\n24333f8a63b6825ea9c5514f83c2829b004d1fee\n504667f4c0de7af1a06de9f4b1727b84351f2910\n' \
-              > "$ANDROID_HOME/licenses/android-sdk-license"
-            printf '\n84831b9409646a918e30573bab4c9c91346d8abd' \
-              > "$ANDROID_HOME/licenses/android-sdk-preview-license"
-            echo "✓ Created licenses/"
+            echo "✓ sdkmanager found at $SDKMANAGER"
+            "$SDKMANAGER" --version
+          else
+            echo "::error::sdkmanager not found or not executable: $SDKMANAGER"
+            exit 1
           fi
+          # 保险起见,显式接受一次 licenses（覆盖空文件情况）
+          echo ""
+          echo "→ Accepting SDK licenses via sdkmanager..."
+          yes | "$SDKMANAGER" --licenses 2>&1 | tail -5
           echo ""
           echo "=== Final licenses/ ==="
           ls -la "$ANDROID_HOME/licenses/" 2>/dev/null
