@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>多平台发布方案设计 · 审阅预览</title>
+  <style>
+    :root {
+      --bg: #f7f8fc;
+      --surface: #ffffff;
+      --surface-2: #f0f2f7;
+      --text: #1a1f36;
+      --text-dim: #6b7280;
+      --accent: #6c5ce7;
+      --accent-2: #0984e3;
+      --accent-soft: #ece9ff;
+      --success: #00b894;
+      --warn: #fdcb6e;
+      --danger: #d63031;
+      --border: #e5e7eb;
+      --code-bg: #1a1f36;
+      --code-text: #e4e6eb;
+      --shadow: 0 1px 3px rgba(26, 31, 54, 0.06), 0 4px 12px rgba(26, 31, 54, 0.04);
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; scroll-padding-top: 24px; }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    /* ─── Layout ─── */
+    .layout {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+    }
+
+    /* ─── Sidebar ─── */
+    .sidebar {
+      position: sticky;
+      top: 0;
+      align-self: start;
+      height: 100vh;
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 32px 20px;
+    }
+
+    .sidebar h2 {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      margin: 0 0 16px;
+      font-weight: 600;
+    }
+
+    .toc { list-style: none; padding: 0; margin: 0; }
+    .toc li { margin: 2px 0; }
+    .toc a {
+      display: block;
+      padding: 6px 12px;
+      color: var(--text);
+      text-decoration: none;
+      border-radius: 6px;
+      font-size: 13.5px;
+      border-left: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .toc a:hover {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    .toc a.active {
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 600;
+      border-left-color: var(--accent);
+    }
+    .toc .lvl-3 a { padding-left: 28px; font-size: 12.5px; }
+
+    .sidebar-meta {
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+    .sidebar-meta div { margin: 4px 0; }
+    .sidebar-meta code {
+      background: var(--surface-2);
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 11px;
+    }
+
+    /* ─── Main ─── */
+    main {
+      padding: 40px 56px 80px;
+      min-width: 0;
+    }
+
+    .header {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+      color: white;
+      padding: 40px 48px;
+      border-radius: 16px;
+      margin-bottom: 40px;
+      box-shadow: var(--shadow);
+    }
+    .header h1 {
+      margin: 0 0 12px;
+      font-size: 28px;
+      font-weight: 700;
+    }
+    .header .subtitle { font-size: 15px; opacity: 0.9; margin: 0; }
+    .header .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-top: 20px;
+      font-size: 13px;
+      opacity: 0.95;
+    }
+    .header .meta span {
+      background: rgba(255, 255, 255, 0.15);
+      padding: 4px 12px;
+      border-radius: 12px;
+      backdrop-filter: blur(8px);
+    }
+
+    h2 {
+      font-size: 22px;
+      margin: 48px 0 16px;
+      padding-top: 16px;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 8px;
+      scroll-margin-top: 24px;
+    }
+    h2 .num {
+      display: inline-block;
+      width: 32px;
+      height: 32px;
+      line-height: 32px;
+      text-align: center;
+      background: var(--accent);
+      color: white;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      margin-right: 12px;
+      vertical-align: middle;
+    }
+
+    h3 {
+      font-size: 17px;
+      margin: 28px 0 12px;
+      color: var(--accent);
+      scroll-margin-top: 24px;
+    }
+    h4 {
+      font-size: 14.5px;
+      margin: 20px 0 8px;
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    p { margin: 10px 0; }
+
+    a { color: var(--accent); }
+
+    /* ─── Cards ─── */
+    .card {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 20px 24px;
+      margin: 16px 0;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+    }
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin: 16px 0;
+    }
+    .card-grid .card { margin: 0; }
+
+    .platform-card {
+      border-top: 4px solid var(--accent);
+    }
+    .platform-card.windows { border-top-color: #0984e3; }
+    .platform-card.linux   { border-top-color: #00b894; }
+    .platform-card.android { border-top-color: #fdcb6e; }
+
+    .platform-card .icon {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+
+    /* ─── Tables ─── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      background: var(--surface);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    th, td {
+      text-align: left;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    th {
+      background: var(--surface-2);
+      font-weight: 600;
+      color: var(--text);
+      font-size: 13px;
+    }
+    tr:last-child td { border-bottom: none; }
+    td code, th code { font-size: 12.5px; }
+
+    /* ─── Code blocks ─── */
+    pre {
+      background: var(--code-bg);
+      color: var(--code-text);
+      padding: 16px 20px;
+      border-radius: 10px;
+      overflow-x: auto;
+      font-size: 13px;
+      line-height: 1.55;
+      margin: 12px 0;
+      font-family: "SF Mono", Consolas, Monaco, "Cascadia Code", monospace;
+    }
+    pre code { background: none; padding: 0; }
+    code {
+      background: var(--surface-2);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+      font-family: "SF Mono", Consolas, Monaco, monospace;
+      color: var(--accent);
+    }
+    pre code { color: var(--code-text); }
+
+    /* ─── Inline tags ─── */
+    .tag {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .tag-a   { background: #dfe6e9; color: #2d3436; }
+    .tag-b   { background: #55efc4; color: #006c4f; }
+    .tag-rec { background: var(--accent-soft); color: var(--accent); }
+    .tag-new { background: #ffeaa7; color: #6c5ce7; }
+    .tag-mod { background: #fab1a0; color: #d35400; }
+    .tag-warn { background: #fff3cd; color: #856404; }
+
+    /* ─── Architecture diagram ─── */
+    .diagram {
+      background: var(--surface);
+      padding: 32px;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      margin: 20px 0;
+      overflow-x: auto;
+    }
+    .diagram svg { display: block; margin: 0 auto; max-width: 100%; }
+
+    /* ─── Checklist ─── */
+    .checklist { list-style: none; padding: 0; margin: 16px 0; }
+    .checklist li {
+      padding: 8px 0 8px 32px;
+      position: relative;
+      border-bottom: 1px solid var(--border);
+    }
+    .checklist li:last-child { border-bottom: none; }
+    .checklist li::before {
+      content: "☐";
+      position: absolute;
+      left: 8px;
+      top: 8px;
+      font-size: 16px;
+      color: var(--accent);
+    }
+    .checklist .sub {
+      padding-left: 48px;
+      font-size: 13.5px;
+      color: var(--text-dim);
+    }
+    .checklist .sub::before { content: "└─"; color: var(--text-dim); }
+
+    /* ─── File tree ─── */
+    .filetree {
+      background: var(--code-bg);
+      color: var(--code-text);
+      padding: 16px 20px;
+      border-radius: 10px;
+      font-family: "SF Mono", Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.7;
+      overflow-x: auto;
+      white-space: pre;
+    }
+
+    /* ─── Callout boxes ─── */
+    .callout {
+      border-left: 4px solid;
+      padding: 14px 18px;
+      margin: 16px 0;
+      border-radius: 0 8px 8px 0;
+      background: var(--surface);
+    }
+    .callout.info     { border-color: var(--accent-2); background: #e3f2fd; }
+    .callout.warn     { border-color: var(--warn);     background: #fff8e1; }
+    .callout.success  { border-color: var(--success);  background: #e8f5e9; }
+    .callout strong { display: block; margin-bottom: 4px; }
+
+    /* ─── Sticky actions ─── */
+    .actions {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      gap: 8px;
+      z-index: 100;
+    }
+    .actions button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 24px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(108, 92, 231, 0.4);
+      transition: transform 0.15s;
+    }
+    .actions button:hover { transform: translateY(-2px); }
+
+    /* ─── Print ─── */
+    @media print {
+      .sidebar, .actions { display: none; }
+      .layout { grid-template-columns: 1fr; }
+      main { padding: 0; }
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- ─────────────── Sidebar ─────────────── -->
+  <aside class="sidebar">
+    <h2>目录</h2>
+    <ul class="toc">
+      <li><a href="#sec-1">1. 目标与背景</a></li>
+      <li><a href="#sec-2">2. 关键决策摘要</a></li>
+      <li><a href="#sec-3">3. 整体架构</a></li>
+      <li><a href="#sec-4">4. PWA 改造</a>
+        <ul class="lvl-3">
+          <li><a href="#sec-4-1">4.1 新增文件</a></li>
+          <li><a href="#sec-4-2">4.2 manifest.json</a></li>
+          <li><a href="#sec-4-3">4.3 sw.js</a></li>
+          <li><a href="#sec-4-4">4.4 assetlinks.json</a></li>
+          <li><a href="#sec-4-5">4.5 index.html 改动</a></li>
+        </ul>
+      </li>
+      <li><a href="#sec-5">5. 平台打包</a>
+        <ul class="lvl-3">
+          <li><a href="#sec-5-1">5.1 Windows</a></li>
+          <li><a href="#sec-5-2">5.2 Linux</a></li>
+          <li><a href="#sec-5-3">5.3 Android</a></li>
+        </ul>
+      </li>
+      <li><a href="#sec-6">6. 资源构建流水线</a></li>
+      <li><a href="#sec-7">7. release/ 结构</a></li>
+      <li><a href="#sec-8">8. GitHub Actions</a></li>
+      <li><a href="#sec-9">9. Secrets</a></li>
+      <li><a href="#sec-10">10. 测试策略</a></li>
+      <li><a href="#sec-11">11. Android Keystore</a></li>
+      <li><a href="#sec-12">12. 改动清单</a></li>
+      <li><a href="#sec-13">13. 首次发布 Checklist</a></li>
+      <li><a href="#sec-14">14. 已知限制</a></li>
+    </ul>
+
+    <div class="sidebar-meta">
+      <div>📄 <code>release/dev_doc/2026-06-25-multi-platform-release-design.md</code></div>
+      <div>🔖 <code>388bb70</code></div>
+      <div>📅 2026-06-25</div>
+    </div>
+  </aside>
+
+  <!-- ─────────────── Main ─────────────── -->
+  <main>
+
+    <div class="header">
+      <h1>摩斯密码练习器 · 多平台发布方案设计</h1>
+      <p class="subtitle">Brainstorming session 2026-06-25 · 完整设计文档预览</p>
+      <div class="meta">
+        <span>📦 三平台 .exe / .apk / .deb</span>
+        <span>🚀 tag 触发 GitHub Actions</span>
+        <span>📝 自动生成 changelog</span>
+        <span>🎯 真·离线（Win/Linux）</span>
+      </div>
+    </div>
+
+    <!-- ─── §1 ─── -->
+    <h2 id="sec-1"><span class="num">1</span>目标与背景</h2>
+    <p>为摩斯密码练习器（一个纯 ESM + Vanilla JS 静态站，已部署到 Cloudflare Pages）提供 <strong>Windows <code>.exe</code> / Android <code>.apk</code> / Linux <code>.deb</code></strong> 三种可安装包，发布到 GitHub Releases，让用户可以"安装到本地"使用。</p>
+
+    <div class="callout info">
+      <strong>核心约束（沿用项目现状）</strong>
+      业务代码无构建工具，<strong>不引入打包器</strong>；站点部署在 <code>morsepractice.pages.dev</code>（<code>*.pages.dev</code> 子域，无自定义域）；保持"零构建"哲学，新增工具仅限 CI 侧。
+    </div>
+
+    <!-- ─── §2 ─── -->
+    <h2 id="sec-2"><span class="num">2</span>关键决策摘要</h2>
+    <table>
+      <thead>
+        <tr><th>决策点</th><th>选择</th><th>理由</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>包装器形态</td>
+          <td><span class="tag tag-b">混合方案</span></td>
+          <td>Win/Linux 走 B（嵌入资源+迷你服务器，真离线），Android 走 A（TWA+强SW，首次需网）</td>
+        </tr>
+        <tr>
+          <td>发布触发</td>
+          <td><span class="tag tag-rec">git tag 推送</span></td>
+          <td>严格控制发布节奏</td>
+        </tr>
+        <tr>
+          <td>Changelog</td>
+          <td><span class="tag tag-rec">git-cliff 自动生成</span></td>
+          <td>项目已用 Conventional Commits</td>
+        </tr>
+        <tr>
+          <td>图标管理</td>
+          <td><span class="tag tag-rec">提交到 release/assets/</span></td>
+          <td>跨平台可重现、PR 可预览</td>
+        </tr>
+        <tr>
+          <td>资源存放</td>
+          <td><span class="tag tag-rec">全部放 release/</span></td>
+          <td>隔离发布相关代码与业务代码</td>
+        </tr>
+        <tr>
+          <td>构建产物</td>
+          <td><span class="tag tag-warn">gitignore release/dist/</span></td>
+          <td>避免二进制污染 PR diff</td>
+        </tr>
+        <tr>
+          <td>Android 签名</td>
+          <td>自签名 keystore 存 GitHub Secret</td>
+          <td>个人项目、避免上传 keystore</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ─── §3 ─── -->
+    <h2 id="sec-3"><span class="num">3</span>整体架构</h2>
+    <p><strong>两层分离</strong>：站点层（业务代码）+ 包装层（新增 <code>release/</code> 目录）。</p>
+
+    <div class="diagram">
+      <svg viewBox="0 0 760 360" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="gradSite" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%"  stop-color="#6c5ce7"/>
+            <stop offset="100%" stop-color="#0984e3"/>
+          </linearGradient>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#1a1f36"/>
+          </marker>
+        </defs>
+
+        <!-- Site layer -->
+        <rect x="20" y="20" width="720" height="100" rx="12" fill="url(#gradSite)" opacity="0.1" stroke="#6c5ce7" stroke-width="2"/>
+        <text x="40" y="48" font-size="14" font-weight="700" fill="#6c5ce7">站点层（业务代码，原仓库结构）</text>
+        <text x="40" y="72" font-size="12" fill="#1a1f36">index.html · src/ · styles/ · manifest.json · sw.js</text>
+        <text x="40" y="92" font-size="12" fill="#1a1f36" font-style="italic">↓ 部署到 morsepractice.pages.dev</text>
+
+        <!-- Wrapper layer -->
+        <rect x="20" y="150" width="720" height="180" rx="12" fill="#f0f2f7" stroke="#00b894" stroke-width="2" stroke-dasharray="6,4"/>
+        <text x="40" y="178" font-size="14" font-weight="700" fill="#00b894">包装层（新增 release/ 目录）</text>
+
+        <!-- Win -->
+        <rect x="60" y="200" width="200" height="100" rx="10" fill="white" stroke="#0984e3" stroke-width="2"/>
+        <text x="80" y="225" font-size="13" font-weight="700" fill="#0984e3">🪟 Windows .exe</text>
+        <text x="80" y="248" font-size="11" fill="#1a1f36">Go 嵌入资源</text>
+        <text x="80" y="265" font-size="11" fill="#1a1f36">+ 迷你服务器</text>
+        <text x="80" y="282" font-size="10" fill="#6b7280" font-style="italic">B 方案 · 真离线</text>
+
+        <!-- Linux -->
+        <rect x="280" y="200" width="200" height="100" rx="10" fill="white" stroke="#00b894" stroke-width="2"/>
+        <text x="300" y="225" font-size="13" font-weight="700" fill="#00b894">🐧 Linux .deb</text>
+        <text x="300" y="248" font-size="11" fill="#1a1f36">bash 启动器</text>
+        <text x="300" y="265" font-size="11" fill="#1a1f36">+ python3 http.server</text>
+        <text x="300" y="282" font-size="10" fill="#6b7280" font-style="italic">B 方案 · 真离线</text>
+
+        <!-- Android -->
+        <rect x="500" y="200" width="200" height="100" rx="10" fill="white" stroke="#fdcb6e" stroke-width="2"/>
+        <text x="520" y="225" font-size="13" font-weight="700" fill="#d68910">🤖 Android .apk</text>
+        <text x="520" y="248" font-size="11" fill="#1a1f36">Bubblewrap TWA</text>
+        <text x="520" y="265" font-size="11" fill="#1a1f36">+ 强 SW 缓存</text>
+        <text x="520" y="282" font-size="10" fill="#6b7280" font-style="italic">A 方案 · 首次需网</text>
+
+        <!-- Shared note -->
+        <text x="400" y="345" text-anchor="middle" font-size="12" fill="#6b7280" font-style="italic">↑ 三个平台共享 release/dist/web/ 资源</text>
+      </svg>
+    </div>
+
+    <div class="callout success">
+      <strong>关键特性</strong>
+      三个平台产物<strong>互相独立</strong>，可单独失败；Win/Linux 包装器自带完整 web 资源 → <strong>真离线可用</strong>；Android 首次启动需联网拉资源（之后靠 SW 永久离线）；业务代码升级仅需 <code>wrangler pages deploy</code>，Android 端无需重打包。
+    </div>
+
+    <!-- ─── §4 ─── -->
+    <h2 id="sec-4"><span class="num">4</span>PWA 改造（站点层改动）</h2>
+
+    <h3 id="sec-4-1">4.1 新增文件</h3>
+    <table>
+      <thead><tr><th>路径</th><th>用途</th></tr></thead>
+      <tbody>
+        <tr><td><code>manifest.json</code></td><td>Web App Manifest</td></tr>
+        <tr><td><code>sw.js</code></td><td>Service Worker（cache-first + 版本化）</td></tr>
+        <tr><td><code>assets/icon-192.png</code></td><td>PWA 标准图标（192×192）</td></tr>
+        <tr><td><code>assets/icon-512.png</code></td><td>PWA 标准图标（512×512）</td></tr>
+        <tr><td><code>assets/icon-maskable-512.png</code></td><td>TWA / Android 安装图标（带安全区）</td></tr>
+        <tr><td><code>assets/icon-256.png</code></td><td>Linux .deb 桌面图标</td></tr>
+        <tr><td><code>.well-known/assetlinks.json</code></td><td>TWA 数字资产链接</td></tr>
+      </tbody>
+    </table>
+
+    <h3 id="sec-4-2">4.2 manifest.json 模板</h3>
+<pre><code>{
+  "name": "摩斯密码练习器",
+  "short_name": "Morse Practice",
+  "description": "一个支持字母/单词/句子三档练习、双向听打、键盘拍码的摩斯码练习工具",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#6c5ce7",
+  "background_color": "#f7f8fc",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "/assets/icon-192.png",         "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icon-512.png",         "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}</code></pre>
+    <p><code>theme_color: #6c5ce7</code> 取自 <code>styles/main.css</code> 的 <code>--accent</code> 变量。</p>
+
+    <h3 id="sec-4-3">4.3 sw.js（Service Worker）</h3>
+    <p><strong>策略</strong>：HTML 入口走 <strong>network-first</strong>（保证升级能拿到新版本），其他静态资源走 <strong>cache-first</strong>。版本号常量 <code>morse-cache-v1</code>，升级时手动 +1，<code>activate</code> 事件里清旧 cache。</p>
+
+    <p>预缓存白名单（写在 <code>sw.js</code> 顶部数组）：</p>
+<pre><code>const PRECACHE = [
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/styles/main.css',
+  '/src/main.js',
+  '/src/core/{morse-table,encoder,audio}.js',
+  '/src/modes/{forward,listen,straightkey,translator}.js',
+  '/src/storage/progress.js',
+  '/src/i18n/{index,zh,en}.js',
+  '/src/data/{words,sentences}.js',
+  '/src/ui/app.js',
+  '/assets/icon-192.png',
+  '/assets/icon-512.png',
+  '/assets/icon-maskable-512.png'
+];</code></pre>
+
+    <div class="callout warn">
+      <strong>⚠️ 维护提示</strong>
+      业务代码新增静态文件时<strong>必须</strong>手动加进 <code>PRECACHE</code>，否则 SW 不会缓存。
+    </div>
+
+    <h3 id="sec-4-4">4.4 .well-known/assetlinks.json</h3>
+<pre><code>[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.github.yuxinluo.morsepractice",
+    "sha256_cert_fingerprints": [
+      "&lt;由 keystore 生成时填入&gt;"
+    ]
+  }
+}]</code></pre>
+
+    <h3 id="sec-4-5">4.5 index.html 改动</h3>
+    <p><strong>新增</strong>（<code>&lt;head&gt;</code> 内）：</p>
+<pre><code>&lt;link rel="manifest" href="/manifest.json"&gt;
+&lt;meta name="theme-color" content="#6c5ce7"&gt;
+&lt;link rel="apple-touch-icon" href="/assets/icon-192.png"&gt;
+&lt;script&gt;
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () =&gt; {
+      navigator.serviceWorker.register('/sw.js');
+    });
+  }
+&lt;/script&gt;</code></pre>
+
+    <p><strong>删除</strong>（会与 SW 冲突）：</p>
+<pre><code>&lt;meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"&gt;
+&lt;meta http-equiv="Pragma" content="no-cache"&gt;
+&lt;meta http-equiv="Expires" "0"&gt;</code></pre>
+
+    <div class="callout info">
+      <strong>为什么删 no-cache？</strong>
+      这三行原本是为开发期避免浏览器缓存加的，部署后反而不利（SW 已接管缓存策略）。开发期改用 <code>dev-server.py</code> 的 no-cache 头即可。
+    </div>
+
+    <!-- ─── §5 ─── -->
+    <h2 id="sec-5"><span class="num">5</span>平台打包（包装层）</h2>
+
+    <div class="card-grid">
+      <div class="card platform-card windows">
+        <div class="icon">🪟</div>
+        <h3 style="margin-top:0">Windows .exe</h3>
+        <p><strong>方案：</strong> <span class="tag tag-b">B · Go 启动器</span></p>
+        <p><strong>产物：</strong> ~5MB（Go binary + 150KB 资源）</p>
+        <p><strong>系统依赖：</strong> 无（自带）</p>
+        <p><strong>离线：</strong> ✅ 真离线</p>
+      </div>
+      <div class="card platform-card linux">
+        <div class="icon">🐧</div>
+        <h3 style="margin-top:0">Linux .deb</h3>
+        <p><strong>方案：</strong> <span class="tag tag-b">B · bash + python3</span></p>
+        <p><strong>产物：</strong> ~150KB（纯资源 + 启动脚本）</p>
+        <p><strong>系统依赖：</strong> python3, xdg-utils（Debian/Ubuntu 预装）</p>
+        <p><strong>离线：</strong> ✅ 真离线</p>
+      </div>
+      <div class="card platform-card android">
+        <div class="icon">🤖</div>
+        <h3 style="margin-top:0">Android .apk</h3>
+        <p><strong>方案：</strong> <span class="tag tag-a">A · TWA + 强 SW</span></p>
+        <p><strong>产物：</strong> ~50KB（apk + 远程资源）</p>
+        <p><strong>系统依赖：</strong> Android 7+</p>
+        <p><strong>离线：</strong> 🟡 首次需网</p>
+      </div>
+    </div>
+
+    <h3 id="sec-5-1">5.1 Windows —— Go 启动器</h3>
+    <p><strong>位置</strong>：<code>release/cmd/windows-launcher/main.go</code>（~150 行）</p>
+    <p><strong>核心逻辑</strong>：</p>
+<pre><code>//go:embed all:dist
+var assets embed.FS
+
+func main() {
+    ln, _ := net.Listen("tcp", "127.0.0.1:0")
+    port := ln.Addr().(*net.TCPAddr).Port
+
+    sub, _ := fs.Sub(assets, "dist")
+    go http.Serve(ln, http.FileServer(http.FS(sub)))
+
+    url := fmt.Sprintf("http://127.0.0.1:%d/", port)
+    exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+
+    select {} // 阻塞，用户关闭窗口即结束进程
+}</code></pre>
+    <p><strong>关键设计</strong>：</p>
+    <ul>
+      <li><code>embed.FS</code>：Go 编译时把 <code>release/dist/web/</code> 整个目录嵌入二进制 → <strong>单文件交付</strong></li>
+      <li>端口 0 = OS 自动分配空闲端口 → 避免冲突</li>
+      <li>启动时在终端打印 URL → 用户看到"安装位置"和"如何停止"</li>
+      <li>关闭启动器窗口 = 服务停止 = 浏览器下次刷新会失败</li>
+    </ul>
+    <p><strong>构建命令</strong>（CI 在 ubuntu-latest 上交叉编译）：</p>
+<pre><code>cd release/cmd/windows-launcher
+GOOS=windows GOARCH=amd64 go build \
+  -ldflags="-H windowsgui -X main.version=$VERSION" \
+  -o ../../dist/Morse-Practice-$VERSION.exe</code></pre>
+    <p><code>windowsgui</code>：编译为 GUI 子系统（不弹黑色控制台窗口）。CI runner 是 Linux，用 <code>mingw-w64</code> 即可交叉编译 Go。</p>
+
+    <h3 id="sec-5-2">5.2 Linux —— bash + python3</h3>
+    <p><strong>位置</strong>：<code>release/packaging/linux/</code>（模板）+ <code>release/scripts/build-linux.sh</code></p>
+    <p><strong>启动脚本</strong> <code>/usr/bin/morse-practice</code>：</p>
+<pre><code>#!/bin/bash
+set -e
+ASSETS=/opt/morse-practice
+PORT=${MORSE_PORT:-18765}
+URL="http://127.0.0.1:$PORT/"
+
+cd "$ASSETS"
+python3 -m http.server $PORT --bind 127.0.0.1 >/dev/null 2>&1 &
+SERVER_PID=$!
+trap "kill $SERVER_PID 2>/dev/null" EXIT
+sleep 0.3
+
+xdg-open "$URL" >/dev/null 2>&1 &
+echo "Morse Practice running on $URL"
+echo "Press Enter to stop..."
+read _
+kill $SERVER_PID 2>/dev/null</code></pre>
+
+    <p><strong>DEBIAN/control</strong>：</p>
+<pre><code>Package: morse-practice
+Version: 0.2.0
+Section: education
+Priority: optional
+Architecture: amd64
+Depends: python3, xdg-utils
+Recommends: chromium | google-chrome | firefox
+Maintainer: Yuxin Luo &lt;your-email@example.com&gt;
+Description: 摩斯密码练习器 (Morse Practice)
+ 一个支持字母/单词/句子三档练习、双向听打、键盘拍码的摩斯码练习工具。
+ 纯前端实现，可离线使用。</code></pre>
+
+    <h3 id="sec-5-3">5.3 Android —— Bubblewrap TWA</h3>
+    <p><strong>位置</strong>：<code>release/packaging/android/twa-manifest.json</code></p>
+<pre><code>{
+  "packageId": "com.github.yuxinluo.morsepractice",
+  "host": "morsepractice.pages.dev",
+  "name": "摩斯密码练习器",
+  "launcherName": "Morse Practice",
+  "display": "standalone",
+  "orientation": "portrait",
+  "themeColor": "#6c5ce7",
+  "backgroundColor": "#f7f8fc",
+  "enableNotifications": false,
+  "startUrl": "/",
+  "iconUrl": "https://morsepractice.pages.dev/assets/icon-512.png",
+  "splashColor": "#6c5ce7",
+  "webManifestUrl": "https://morsepractice.pages.dev/manifest.json",
+  "fallbackType": "customtabs",
+  "appVersion": "0.2.0",
+  "versionCode": 20000
+}</code></pre>
+
+    <div class="callout warn">
+      <strong>⚠️ 子域 TWA 已知限制</strong>
+      <code>*.pages.dev</code> 子域的 TWA 不能 100% 全屏（无严格 DAL 验证）。Bubblewrap 会生成<strong>社区共享签名</strong> manifest。偶尔会回落到 Custom Tab —— 这是已知的子域限制，可接受。如需 100% 全屏体验，需绑自定义域。
+    </div>
+
+    <!-- ─── §6 ─── -->
+    <h2 id="sec-6"><span class="num">6</span>资源构建流水线</h2>
+
+    <p><strong><code>release/scripts/build-assets.sh</code></strong> —— 每次构建前必跑：</p>
+<pre><code>#!/bin/bash
+set -e
+VERSION=$(node -p "require('./package.json').version")
+ROOT=$(git rev-parse --show-toplevel)
+DIST=$ROOT/release/dist
+
+# 1. 复制 web 源码到 dist/
+rm -rf "$DIST/web"
+mkdir -p "$DIST/web"
+cp -r "$ROOT/index.html" "$ROOT/styles" "$ROOT/src" "$DIST/web/"
+cp "$ROOT/manifest.json" "$ROOT/sw.js" "$DIST/web/" 2&gt;/dev/null || true
+
+# 2. 复制图标
+mkdir -p "$DIST/web/assets"
+cp "$ROOT/release/assets/"*.png "$DIST/web/assets/"
+
+# 3. 注入版本号到 manifest.json
+sed -i "s/\"version\".*/\"version\": \"$VERSION\",/" "$DIST/web/manifest.json"
+
+echo "✓ Web assets built at $DIST/web/"</code></pre>
+
+    <p><strong><code>release/scripts/build-icons.py</code></strong> —— 从 <code>FrontImages/icon.png</code> 切图标（中心裁剪 628×625 → 192/256/512/maskable-512）：</p>
+    <p>核心逻辑：</p>
+    <ul>
+      <li>中心裁剪到正方形（<code>side = min(w, h)</code>）</li>
+      <li>maskable 安全区：图标缩到 80%，外圈 10% 用主题色 <code>#6c5ce7</code> 填充</li>
+      <li>使用 PIL <code>Image.LANCZOS</code> 高质量缩放</li>
+    </ul>
+
+    <p><strong>首次跑法</strong>：</p>
+<pre><code>python3 release/scripts/build-icons.py
+git add release/assets/*.png
+git commit -m "chore(release): generate app icons from FrontImages/icon.png"</code></pre>
+
+    <!-- ─── §7 ─── -->
+    <h2 id="sec-7"><span class="num">7</span><code>release/</code> 目录结构</h2>
+<div class="filetree">release/
+├── README.md                          # 打包 + 发布流程说明（中文）
+├── dev_doc/                           # 设计 / 规划文档
+│   └── 2026-06-25-multi-platform-release-design.md  # 本文件
+│   └── preview.html                   # 本审阅预览
+├── cliff.toml                         # git-cliff 配置
+├── assets/                            # 生成的图标（commit）
+│   ├── icon-192.png
+│   ├── icon-256.png
+│   ├── icon-512.png
+│   └── icon-maskable-512.png
+├── cmd/
+│   └── windows-launcher/
+│       ├── main.go                    # Go 启动器源码
+│       └── go.mod                     # Go 模块定义
+├── packaging/
+│   ├── linux/                         # .deb 模板（commit）
+│   │   ├── DEBIAN/{control, postinst, prerm}
+│   │   ├── usr/bin/morse-practice
+│   │   └── usr/share/applications/morse-practice.desktop
+│   └── android/
+│       └── twa-manifest.json          # Bubblewrap 配置
+├── scripts/                           # 全部打包脚本
+│   ├── build-assets.sh                # 复制 + 注入版本
+│   ├── build-icons.py                 # icon 处理
+│   ├── build-windows.sh               # go build
+│   ├── build-linux.sh                 # dpkg-deb
+│   ├── build-android.sh               # bubblewrap build
+│   └── release.sh                     # 一键本地构建（可选）
+└── dist/                              # 构建产物（gitignore）
+    ├── web/                           # 中间产物
+    ├── Morse-Practice-0.2.0.exe
+    ├── morse-practice_0.2.0_amd64.deb
+    └── morse-practice-0.2.0.apk</div>
+
+    <!-- ─── §8 ─── -->
+    <h2 id="sec-8"><span class="num">8</span>GitHub Actions Workflow</h2>
+    <p><strong><code>.github/workflows/release.yml</code></strong> 由 5 个 jobs 组成：</p>
+
+    <div class="card-grid">
+      <div class="card">
+        <h4 style="margin-top:0">① build-assets</h4>
+        <p><strong>runner：</strong>ubuntu-latest</p>
+        <p>生成图标 + 复制 web 资源 + 注入版本号，产出 <code>web-assets</code> artifact</p>
+      </div>
+      <div class="card">
+        <h4 style="margin-top:0">② build-linux</h4>
+        <p><strong>runner：</strong>ubuntu-latest</p>
+        <p>用 <code>dpkg-deb</code> 产出 <code>.deb</code></p>
+      </div>
+      <div class="card">
+        <h4 style="margin-top:0">③ build-windows</h4>
+        <p><strong>runner：</strong>ubuntu-latest</p>
+        <p>Go 交叉编译 → <code>.exe</code>（含 embed 资源）</p>
+      </div>
+      <div class="card">
+        <h4 style="margin-top:0">④ build-android</h4>
+        <p><strong>runner：</strong>ubuntu-latest</p>
+        <p>Bubblewrap + 签名 keystore → <code>.apk</code></p>
+      </div>
+      <div class="card">
+        <h4 style="margin-top:0">⑤ release</h4>
+        <p><strong>runner：</strong>ubuntu-latest</p>
+        <p>git-cliff 生成 changelog + <code>action-gh-release</code> 上传</p>
+      </div>
+    </div>
+
+    <p><strong>触发条件</strong>：<code>on.push.tags: ['v*.*.*']</code> → 仅 git tag 推送触发。</p>
+    <p><strong>前置依赖</strong>：前 4 个 job 并行执行；release job 在前 4 个全部成功后运行。</p>
+
+    <!-- ─── §9 ─── -->
+    <h2 id="sec-9"><span class="num">9</span>必填 Secrets</h2>
+    <p>首次设置（一次性）：</p>
+    <table>
+      <thead><tr><th>Secret</th><th>用途</th><th>生成方式</th></tr></thead>
+      <tbody>
+        <tr><td><code>ANDROID_KEYSTORE_BASE64</code></td><td>TWA 签名 keystore</td><td>见 §11</td></tr>
+        <tr><td><code>ANDROID_KEYSTORE_PASS</code></td><td>keystore 解锁密码</td><td>自定</td></tr>
+        <tr><td><code>ANDROID_KEY_PASS</code></td><td>签名 key 密码</td><td>自定</td></tr>
+      </tbody>
+    </table>
+    <div class="callout info">
+      <strong>无需配置 GITHUB_TOKEN</strong>
+      Actions 自带 + workflow 顶部 <code>permissions: contents: write</code> 已声明。
+    </div>
+
+    <!-- ─── §10 ─── -->
+    <h2 id="sec-10"><span class="num">10</span>测试策略</h2>
+    <table>
+      <thead><tr><th>层</th><th>内容</th><th>工具</th><th>触发</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><span class="tag">单元</span>（已有）</td>
+          <td>80+ 测试覆盖 <code>src/core/*</code>、<code>src/modes/*</code>、<code>src/storage/*</code>、<code>src/i18n/*</code></td>
+          <td>vitest</td>
+          <td>每次 push</td>
+        </tr>
+        <tr>
+          <td><span class="tag tag-new">PWA 资源完整性</span>（新增）</td>
+          <td><code>manifest.json</code> 字段、<code>sw.js</code> PRECACHE 数组的文件都存在、<code>assetlinks.json</code> 合法</td>
+          <td>vitest</td>
+          <td>每次 push</td>
+        </tr>
+        <tr>
+          <td><span class="tag tag-new">构建冒烟</span>（CI 跑）</td>
+          <td><code>build-assets.sh</code> 跑通、<code>dist/web/</code> 包含 7+ 必需文件</td>
+          <td>shell assert</td>
+          <td>PR 到 main</td>
+        </tr>
+        <tr>
+          <td><span class="tag tag-new">产物类型</span>（CI 跑）</td>
+          <td><code>file *.exe</code> 应该是 PE32+；<code>dpkg-deb --info</code> 验证元数据</td>
+          <td>shell</td>
+          <td>release job</td>
+        </tr>
+        <tr>
+          <td><span class="tag tag-warn">手动 E2E</span></td>
+          <td>首次 release 在本地装三个包验证可启动</td>
+          <td>人</td>
+          <td>v0.2.0 前</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ─── §11 ─── -->
+    <h2 id="sec-11"><span class="num">11</span>Android Keystore 首次生成（一次性）</h2>
+<pre><code># 1. 生成 keystore
+keytool -genkey -v \
+  -keystore morse-practice.keystore \
+  -alias morse-practice \
+  -keyalg RSA -keysize 2048 -validity 10000 \
+  -storepass &lt;KEYSTORE_PASS&gt; -keypass &lt;KEY_PASS&gt; \
+  -dname "CN=Yuxin Luo, OU=Personal, O=MorsePractice, L=City, S=State, C=CN"
+
+# 2. 获取 SHA-256（用于 assetlinks.json）
+keytool -list -v -keystore morse-practice.keystore -storepass &lt;KEYSTORE_PASS&gt; \
+  | grep SHA256
+
+# 3. 编码 keystore 备用
+base64 -w 0 morse-practice.keystore &gt; keystore.b64
+
+# 4. 存为 GitHub Secrets（在 repo Settings → Secrets → Actions）
+#   ANDROID_KEYSTORE_BASE64 = (keystore.b64 内容)
+#   ANDROID_KEYSTORE_PASS   = &lt;KEYSTORE_PASS&gt;
+#   ANDROID_KEY_PASS        = &lt;KEY_PASS&gt;
+
+# 5. 妥善保管 morse-practice.keystore 到密码管理器 / 加密备份
+#    丢失 = 无法升级已发布版本（用户必须卸载重装）</code></pre>
+
+    <!-- ─── §12 ─── -->
+    <h2 id="sec-12"><span class="num">12</span>改动清单</h2>
+
+    <h3>🆕 新增（commit）<span class="tag tag-new" style="margin-left:8px">21 个文件</span></h3>
+    <table>
+      <thead><tr><th>路径</th><th>来源</th></tr></thead>
+      <tbody>
+        <tr><td><code>manifest.json</code></td><td>§4.2</td></tr>
+        <tr><td><code>sw.js</code></td><td>§4.3</td></tr>
+        <tr><td><code>.well-known/assetlinks.json</code></td><td>§4.4</td></tr>
+        <tr><td><code>release/README.md</code></td><td>流程说明</td></tr>
+        <tr><td><code>release/dev_doc/2026-06-25-multi-platform-release-design.md</code></td><td>本设计文档</td></tr>
+        <tr><td><code>release/dev_doc/preview.html</code></td><td>本审阅预览</td></tr>
+        <tr><td><code>release/cliff.toml</code></td><td>§8</td></tr>
+        <tr><td><code>release/assets/icon-{192,256,512,maskable-512}.png</code></td><td>§6</td></tr>
+        <tr><td><code>release/cmd/windows-launcher/main.go</code></td><td>§5.1</td></tr>
+        <tr><td><code>release/cmd/windows-launcher/go.mod</code></td><td>Go 模块定义</td></tr>
+        <tr><td><code>release/packaging/linux/DEBIAN/{control,postinst,prerm}</code></td><td>§5.2</td></tr>
+        <tr><td><code>release/packaging/linux/usr/bin/morse-practice</code></td><td>§5.2</td></tr>
+        <tr><td><code>release/packaging/linux/usr/share/applications/morse-practice.desktop</code></td><td>§5.2</td></tr>
+        <tr><td><code>release/packaging/android/twa-manifest.json</code></td><td>§5.3</td></tr>
+        <tr><td><code>release/scripts/build-assets.sh</code></td><td>§6</td></tr>
+        <tr><td><code>release/scripts/build-icons.py</code></td><td>§6</td></tr>
+        <tr><td><code>release/scripts/build-windows.sh</code></td><td>§5.1</td></tr>
+        <tr><td><code>release/scripts/build-linux.sh</code></td><td>§5.2</td></tr>
+        <tr><td><code>release/scripts/build-android.sh</code></td><td>§5.3</td></tr>
+        <tr><td><code>tests/pwa-manifest.test.js</code></td><td>§10</td></tr>
+        <tr><td><code>.github/workflows/release.yml</code></td><td>§8</td></tr>
+      </tbody>
+    </table>
+
+    <h3>✏️ 修改<span class="tag tag-mod" style="margin-left:8px">2 个文件</span></h3>
+    <table>
+      <thead><tr><th>路径</th><th>改动</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>index.html</code></td>
+          <td>加 <code>&lt;link rel="manifest"&gt;</code> 等 PWA 标签；删 3 个 no-cache meta</td>
+        </tr>
+        <tr>
+          <td><code>.gitignore</code></td>
+          <td>追加 <code>*.keystore</code>、<code>*.keystore.b64</code>（<code>release/dist/</code> 已被现有 <code>dist/</code> 模式覆盖）</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>🔒 不动</h3>
+    <ul>
+      <li><code>src/</code>、<code>styles/</code>、<code>package.json</code>（除了现有 devDependencies）</li>
+      <li><code>dev-docs/</code>、<code>docs/</code>、<code>tests/</code>（除了新增 pwa-manifest.test.js）</li>
+    </ul>
+
+    <!-- ─── §13 ─── -->
+    <h2 id="sec-13"><span class="num">13</span>首次发布 Checklist</h2>
+    <p>第一次打 tag 前的预备工作（每台机器只做一次）：</p>
+
+    <h4>站点改造</h4>
+    <ul class="checklist">
+      <li>添加 <code>manifest.json</code> / <code>sw.js</code> / <code>.well-known/assetlinks.json</code></li>
+      <li>修改 <code>index.html</code>（PWA 标签、删 no-cache meta）</li>
+      <li>本地 <code>python3 dev-server.py</code> → Chrome DevTools 验证 PWA 状态</li>
+      <li>Lighthouse PWA 审计 100 分</li>
+      <li class="sub"><code>wrangler pages deploy .</code> 上线</li>
+    </ul>
+
+    <h4>图标生成</h4>
+    <ul class="checklist">
+      <li><code>python3 release/scripts/build-icons.py</code> 生成 4 个尺寸</li>
+      <li class="sub"><code>git add release/assets/ &amp;&amp; git commit -m "chore(release): generate app icons"</code></li>
+    </ul>
+
+    <h4>Android Keystore</h4>
+    <ul class="checklist">
+      <li>按 §11 生成 keystore → 存到本地安全位置</li>
+      <li>把 SHA-256 填到 <code>.well-known/assetlinks.json</code></li>
+      <li>GitHub Secrets 配 3 个 ANDROID_* 变量</li>
+    </ul>
+
+    <h4>CI 首次跑通</h4>
+    <ul class="checklist">
+      <li>合并 PR → 检查 Actions 在 push 事件下不触发 release（因为没 tag）</li>
+      <li>（可选）打一个 <code>v0.2.0-rc.1</code> tag 试跑 release</li>
+      <li>下载三个产物、本地安装验证</li>
+    </ul>
+
+    <h4>正式发布</h4>
+    <ul class="checklist">
+      <li>更新 <code>package.json</code> version → 0.2.0</li>
+      <li>合并到 main → <code>git tag v0.2.0 &amp;&amp; git push origin v0.2.0</code></li>
+      <li>GitHub Actions 自动构建 + 创建 Release</li>
+    </ul>
+
+    <!-- ─── §14 ─── -->
+    <h2 id="sec-14"><span class="num">14</span>已知限制与未来改进</h2>
+    <table>
+      <thead><tr><th>限制</th><th>当前方案</th><th>未来改进</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Android 偶发回落 Custom Tab</td>
+          <td><code>*.pages.dev</code> 子域无严格 DAL 验证</td>
+          <td>绑自定义域（如 <code>morse.yuxinluo.com</code>）</td>
+        </tr>
+        <tr>
+          <td>Win 启动器无优雅退出</td>
+          <td>关闭控制台窗口即停止</td>
+          <td>加系统托盘 + Quit 菜单（<code>getlantern/systray</code>）</td>
+        </tr>
+        <tr>
+          <td>Win 无安装/卸载 UI</td>
+          <td>纯单文件 exe</td>
+          <td>用 NSIS 包装一层加安装向导</td>
+        </tr>
+        <tr>
+          <td>Linux 启动需手动关终端</td>
+          <td>bash 启动器</td>
+          <td>加系统托盘或 systemd user service</td>
+        </tr>
+        <tr>
+          <td>无 macOS 包</td>
+          <td>用户未要求</td>
+          <td>Tauri / electron-builder 跨平台扩展</td>
+        </tr>
+        <tr>
+          <td>业务代码改动时 SW cache 不会自动失效</td>
+          <td>靠手动 +1 版本号</td>
+          <td>加版本探测 + 提示用户刷新</td>
+        </tr>
+        <tr>
+          <td><code>.exe</code> 未签名</td>
+          <td>用户运行需点"仍要运行"</td>
+          <td>申请代码签名证书（年费 ~$200）</td>
+        </tr>
+        <tr>
+          <td>无 macOS 通知 / 系统集成</td>
+          <td>不在范围</td>
+          <td>Tauri 扩展</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <hr style="margin: 48px 0; border: none; border-top: 1px solid var(--border);">
+
+    <div class="callout success">
+      <strong>📖 附录：参考链接</strong>
+      <ul style="margin: 8px 0 0; padding-left: 20px;">
+        <li><a href="https://github.com/GoogleChromeLabs/bubblewrap">Bubblewrap TWA</a> · Android TWA 构建工具</li>
+        <li><a href="https://git-cliff.org/">git-cliff</a> · 自动 changelog</li>
+        <li><a href="https://www.conventionalcommits.org/">Conventional Commits</a> · 提交规范</li>
+        <li><a href="https://developers.google.com/digital-asset-links/v1/getting-started">Digital Asset Links</a> · TWA 验证机制</li>
+      </ul>
+    </div>
+
+  </main>
+</div>
+
+<div class="actions">
+  <button onclick="window.print()">🖨️ 打印 / 导出 PDF</button>
+  <button onclick="window.scrollTo({top:0, behavior:'smooth'})">↑ 回到顶部</button>
+</div>
+
+<script>
+  // Highlight TOC on scroll
+  const links = document.querySelectorAll('.toc a');
+  const sections = [...document.querySelectorAll('h2[id^="sec-"]')];
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      const id = entry.target.id;
+      const link = document.querySelector(`.toc a[href="#${id}"]`);
+      if (link) {
+        if (entry.isIntersecting) {
+          links.forEach(l => l.classList.remove('active'));
+          link.classList.add('active');
+        }
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
