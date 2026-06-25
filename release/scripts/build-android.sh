@@ -38,9 +38,13 @@ KEYSTORE_FILE=${KEYSTORE_FILE:-$ROOT/mykEY/morse-practice.keystore}
 cp "$KEYSTORE_FILE" "$TMP_DIR/keystore.jks"
 
 # 4. 调 Bubblewrap 构建
+# 必须先 init（创建 .bubblewrap/{config,checksum}.json），
+# 否则 build 会卡在 "No checksum file was found" 交互式 prompt
 cd "$TMP_DIR"
+echo "→ Initializing Bubblewrap project..."
+bubblewrap init --manifest="$TEMP_MANIFEST"
+echo "→ Building APK..."
 bubblewrap build \
-  --manifest="$TEMP_MANIFEST" \
   --keystore="$TMP_DIR/keystore.jks" \
   --keystorePassword="$KEYSTORE_PASS" \
   --keyPassword="$KEY_PASS"

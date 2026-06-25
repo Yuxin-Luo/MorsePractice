@@ -310,4 +310,64 @@ VERSION_CODE=$(node -p "const [a,b,c]='$VERSION'.split('.').map(Number); a*10000
 > 格式：每条新发现用 `### YYYY-MM-DD HH:MM | <一句话症状>` 开头，
 > 然后 4 段：**症状** / **根因** / **修复** / **commit**
 
-<!-- 后续 debug / 部署记录追加在这下面，不要改写上面 -->
+### 2026-06-25 11:30 | bubblewrap build 卡在 "No checksum file was found" 交互 prompt
+
+**症状**
+
+```
+? 
+No checksum file was found to verify the state of the twa-manifest.json file.
+To make sure your project is up-to-date, would you like to regenerate your 
+project?
+If you are sure your project is updated and you have already run bubblewrap 
+update
+then you may enter "no" (Y/n) 
+Error: Process completed with exit code 130.
+```
+
+（exit 130 = SIGINT，非 TTY stdin EOF）
+
+**根因**
+
+`build-android.sh` 之前只调了 `bubblewrap build`，没调 `bubblewrap init`。
+- `init` 才创建 `.bubblewrap/config.json` + `.bubblewrap/checksum.json`
+- `build` 启动先核对 checksum 文件，没找到就问 "would you like to regenerate?"
+- 默认 Y，但非 TTY stdin 直接 EOF → Bubblewrap 抛错退出
+
+之前本地能跑通是因为：
+- 本地 `~/.bubblewrap/config.json` 是手动建好的（有 jdkPath/androidSdkPath）
+- 第一次跑会触发 init 流程（交互式被本地终端接住）
+- 后续 build 看到 `.bubblewrap/` 已有就直接用
+
+CI 每次都在新的 `$TMP_DIR` 跑 → 每次都是「无项目状态」 → 每次都卡 init。
+
+**修复**
+
+`build-android.sh` 改成先 init 再 build：
+
+```bash
+cd "$TMP_DIR"
+echo "→ Initializing Bubblewrap project..."
+bubblewrap init --manifest="$TEMP_MANIFEST"   # 建 .bubblewrap/{config,checksum}.json
+echo "→ Building APK..."
+bubblewrap build \
+  --keystore="$TMP_DIR/keystore.jks" \
+  --keystorePassword="$KEYSTORE_PASS" \
+  --keyPassword="$KEY_PASS"
+```
+
+**commit** `<待 push>`
+
+**教训**
+
+Bubblewrap 的 init / build 是有状态的：
+- init 创建项目元数据（不可省略）
+- build 校验元数据 → 缺了就 prompt → 非 TTY 必挂
+- 任何「每次跑都在新目录」的 CI 调用，必须显式 `init` 一次再 `build`
+
+**待观察**
+
+- init 会从 `webManifestUrl` 下载 PWA manifest（`https://morsepractice.pages.dev/manifest.json`）
+  验证 → 依赖 Cloudflare Pages 可达
+- init 还会下载 icon → 同上
+- 如果 init 因为网络问题挂，要考虑加 retry / local fallback
