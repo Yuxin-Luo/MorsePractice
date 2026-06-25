@@ -23,3 +23,13 @@ ReferenceRepositories/
 # Local env
 .env
 .env.local
+
+# Marketing / social copy drafts (personal, not for the repo)
+marketing/
+
+# Android signing keys (NEVER commit)
+*.keystore
+*.keystore.b64
+
+# Sensitive keys & credentials (NEVER commit)
+mykEY/
