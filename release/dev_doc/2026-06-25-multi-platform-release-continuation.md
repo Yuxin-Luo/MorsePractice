@@ -7,7 +7,8 @@
 > - 计划：`2026-06-25-multi-platform-release-plan.md`
 > - **CI Debug 日志**：`2026-06-25-ci-debug-log.md` ← **部署踩坑实录，活文档**
 > - 人工清单：`2026-06-25-action-checklist.md`
-> - **本地 Android 编译指南**：`2026-06-25-local-android-build-guide.md` ← **下一位 agent 接手**
+> - **本地 Android 编译指南**：`2026-06-25-local-android-build-guide.md` ← 步骤级
+> - **本地编译思路**：`2026-06-26-local-build-strategy.md` ← **思路级（给下位 agent）**
 
 ---
 
