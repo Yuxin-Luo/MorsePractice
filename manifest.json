@@ -1,0 +1,17 @@
+{
+  "name": "摩斯密码练习器",
+  "short_name": "Morse Practice",
+  "description": "一个支持字母/单词/句子三档练习、双向听打、键盘拍码的摩斯码练习工具",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#6c5ce7",
+  "background_color": "#f7f8fc",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "/assets/icon-192.png",         "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icon-512.png",         "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
