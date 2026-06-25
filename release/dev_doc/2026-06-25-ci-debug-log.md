@@ -371,3 +371,69 @@ Bubblewrap 的 init / build 是有状态的：
   验证 → 依赖 Cloudflare Pages 可达
 - init 还会下载 icon → 同上
 - 如果 init 因为网络问题挂，要考虑加 retry / local fallback
+
+### 2026-06-25 11:45 | bubblewrap init 报 "Invalid URL"（本地路径无协议）
+
+**症状**
+
+```
+Initializing application from Web Manifest:
+    -  /tmp/tmp.miD5BTUQXT/twa-manifest.json
+
+
+cli ERROR Invalid URL
+Error: Process completed with exit code 1.
+```
+
+**根因（已读 v1.24.1 源码 `packages/core/src/lib/TwaManifest.ts`）**
+
+```typescript
+static async fromWebManifest(url: string): Promise<TwaManifest> {
+  const response = await fetchUtils.fetch(url);
+  const webManifest = JSON.parse((await response.text()).trim());
+  const webManifestUrl: URL = new URL(url);   // ← 这一行 throw "Invalid URL"
+  return TwaManifest.fromWebManifestJson(webManifestUrl, webManifest);
+}
+```
+
+`new URL('/tmp/tmp.XXXX/twa-manifest.json')` 没协议（缺 `http://` 或 `https://`）→ 抛 `TypeError [ERR_INVALID_URL]`。
+
+**Bubblewrap CLI 的 init 设计缺陷**：
+- `--manifest` 接受的是**TWA manifest**（本地文件），但内部调 `TwaManifest.fromWebManifest` 把它当 **web manifest URL** 处理
+- `file://` 也不行（Node 20+ 内置 `fetch` 不支持 file scheme）
+- 类里其实有 `TwaManifest.fromFile(fileName)` 但 CLI init 没用它
+
+**修复**
+
+`build-android.sh` 起一个临时 `python3 -m http.server`：
+
+```bash
+cd "$TMP_DIR"
+python3 -m http.server 8765 > /dev/null 2>&1 &
+HTTP_PID=$!
+# 轮询等 server 就绪（最多 2.5s）
+for i in 1 2 3 4 5; do
+  if curl -sf "http://127.0.0.1:8765/" > /dev/null 2>&1; then break; fi
+  sleep 0.5
+done
+
+bubblewrap init --manifest="http://127.0.0.1:8765/$(basename "$TEMP_MANIFEST")"
+
+kill "$HTTP_PID" 2>/dev/null || true
+```
+
+**commit** `<待 push>`
+
+**待观察**
+
+- Python 3 在 CI 已装（`actions/setup-python@v5` 装的 3.11）→ 不会缺
+- 端口 8765 在 GitHub Actions ubuntu-latest runner 是空闲的
+- init 还会从 `webManifestUrl` 下载 PWA manifest → 这次是真的 HTTPS 到 `morsepractice.pages.dev`，依赖 Cloudflare Pages 可达
+- 如果 PWA 还没部署或网络抽风，init 会挂在 PWA 验证那步
+
+**教训**
+
+Node 生态下，CLI 工具用 `new URL(path)` 校验输入路径是个常见反模式——本地文件路径不是合法 URL。设计 CLI 时：
+- 接受本地路径的工具应该用 `path.resolve` + `fs.readFile` 而不是 `fetch` + `new URL`
+- 或者显式区分 `--url` 和 `--file` flag
+- 退而求其次：在脚本层把本地文件托管成 HTTP 端点

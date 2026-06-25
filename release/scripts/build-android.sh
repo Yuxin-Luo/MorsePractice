@@ -40,9 +40,27 @@ cp "$KEYSTORE_FILE" "$TMP_DIR/keystore.jks"
 # 4. 调 Bubblewrap 构建
 # 必须先 init（创建 .bubblewrap/{config,checksum}.json），
 # 否则 build 会卡在 "No checksum file was found" 交互式 prompt
+#
+# 坑:bubblewrap 1.24.1 init 内部用 `new URL(args.manifest)` 解析路径
+# 本地文件路径 (/tmp/...) 没协议 → throw "Invalid URL"
+# 修法:本地起 http server 托管 twa-manifest.json,init 用 http:// URL
 cd "$TMP_DIR"
+echo "→ Starting local HTTP server for TWA manifest..."
+python3 -m http.server 8765 > /dev/null 2>&1 &
+HTTP_PID=$!
+# 等服务就绪
+for i in 1 2 3 4 5; do
+  if curl -sf "http://127.0.0.1:8765/" > /dev/null 2>&1; then break; fi
+  sleep 0.5
+done
+
 echo "→ Initializing Bubblewrap project..."
-bubblewrap init --manifest="$TEMP_MANIFEST"
+bubblewrap init --manifest="http://127.0.0.1:8765/$(basename "$TEMP_MANIFEST")"
+
+echo "→ Stopping HTTP server..."
+kill "$HTTP_PID" 2>/dev/null || true
+wait "$HTTP_PID" 2>/dev/null || true
+
 echo "→ Building APK..."
 bubblewrap build \
   --keystore="$TMP_DIR/keystore.jks" \
